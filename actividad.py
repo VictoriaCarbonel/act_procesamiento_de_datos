@@ -29,7 +29,14 @@ def superanSalarioActividad01(empleado_01,umbral):
 superanSalarioActividad01(empleado_01, 15000)
 
 
+#Rta: [array([20222333,45,2,20000]), array([33456234, 40, 0, 25000])]
+
+
 """¿Cuánto les costó implementar la función? """
+ """Teniendo en cuenta que el ciclo for itera n veces la matriz (es decir, su 
+ longitud) y el costo de agregar un elemento al final de la nueva matriz es O(1),
+    entonces la función tiene un costo de O(n)"""
+
 
 -------------------------------------------------------------------------------
 
@@ -111,7 +118,10 @@ de filas a lista de columnas)?"""
 """¿Cuál es la ventaja, desde el punto de vista del usuario de la función, disponer
 de ella y no escribir directamente el código de la consulta dentro de su programa?"""
 
-
+"""Una de las ventajas es que la función puede usarse en distintos programas o 
+partes del código sin necesidad de reescribirlo, si se necesita usar otras matrices/datos
+solo es necesario cambiar los parámetros y el usuario de la función se ahorra
+tiempo al tener la función lista"""
 
 
 
