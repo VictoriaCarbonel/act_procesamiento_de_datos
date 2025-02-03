@@ -118,10 +118,10 @@ de filas a lista de columnas)?"""
 """¿Cuál es la ventaja, desde el punto de vista del usuario de la función, disponer
 de ella y no escribir directamente el código de la consulta dentro de su programa?"""
 
-"""Una de las ventajas es que la función puede usarse en distintos programas o 
-partes del código sin necesidad de reescribirlo, si se necesita usar otras matrices/datos
-solo es necesario cambiar los parámetros y el usuario de la función se ahorra
-tiempo al tener la función lista"""
+"""Una de las ventajas de no escribir el código en su programa es que si llega 
+a haber alguna clase de error el mismo no se va a ver afectado, manteniendo 
+el problema aislado. Por otro lado, que el código se encuentre ´apartado´ permite 
+que se pueda reutlizar en distintos contextos sin necesidad de reescribirlo """
 
 
 
