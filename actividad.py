@@ -42,9 +42,55 @@ superanSalarioActividad01(empleado_01, 15000)
 
 
 
+-------------------------------------------------------------------------------
+
+#Actividad 3
+
+"""¿Qué pasa si se modifica el orden de las columnas de la matriz? Probar con la 
+nueva matriz empleado_03
+
+¿La función superanSalarioActividad01 sigue funcionando? En caso de no ser asi
+implementar una nueva función superanSalarioActividad03, que tome como entrada 
+la matriz empleado_03 y un valor entero denominado umbral, y que devuelva aquellos
+empleados que ganan un salario > umbral. El orden de las columnas debe ser el original"""
 
 
 
+-------------------------------------------------------------------------------
+
+#Actividad 4
+
+"""¿Qué pasa si a la matriz de entrada se la implementa como lista de columnas en
+vez de lista de filas? Probar con la nueva matriz empleado_04. La matriz resultante
+debe seguir implementada como lista de filas
+
+¿Alguna de las funciones anteriores (superanActividad0...) funciona? En caso de no
+funcionar implementar una nueva función superanActividad04, que tome como entrada 
+la matriz empleado_04 y un valor entero denominado umbral, y que devuelva aquellos
+empleados que ganan un salario > umbral. El orden de las colmunas es el original"""
+
+
+
+
+---------------------------------------------------------------------------------
+
+#Actvidad 5
+
+"""¿Cómo afecto a la programación de la función cuando cambiaron levemente a matriz
+empleado?
+    a. En el caso en que le agregaron más filas
+    b. En el caso en que le alteraron el orden de las columnas"""
+
+
+
+"""¿Y cuando a empleado le cambiaron la forma de representar las matrices (de lista 
+de filas a lista de columnas)?"""
+    
+    
+    
+    
+"""¿Cuál es la ventaja, desde el punto de vista del usuario de la función, disponer
+de ella y no escribir directamente el código de la consulta dentro de su programa?"""
 
 
 
