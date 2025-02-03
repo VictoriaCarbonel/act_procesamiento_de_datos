@@ -80,6 +80,27 @@ implementar una nueva función superanSalarioActividad03, que tome como entrada
 la matriz empleado_03 y un valor entero denominado umbral, y que devuelva aquellos
 empleados que ganan un salario > umbral. El orden de las columnas debe ser el original"""
 
+## el problema es que nuestra funcion dependía del orden de las filas,
+# por eso, vamos a hacer una nueva función que contemple que ahora
+# la matriz tiene el sueldo en la posicion 2
+
+import numpy as np
+
+empleado_03 = np.array([[45, 2, 20000, 20222333],
+                        [40, 0, 25000, 33456234],
+                        [41, 1, 10000, 45432345]])
+
+def superanSalarioActividad03(empleado, umbral):
+    nueva_matriz = []
+    
+    for fila in empleado: # O(n)
+        if fila[2] >= umbral:  # Ahora el salario está en la tercera columna # O(1)
+            nueva_fila = [fila[3], fila[0], fila[1], fila[2]]  # Restauramos el orden original # O(1)
+            nueva_matriz.append(nueva_fila) # O(1)
+    
+    print(nueva_matriz) # O(1)
+    # complejidad de la funcion : O(n) * [O(1) + O(1) + O(1)] == O(n)
+superanSalarioActividad03(empleado_03, 15000)
 
 
 -------------------------------------------------------------------------------
@@ -106,8 +127,11 @@ empleados que ganan un salario > umbral. El orden de las colmunas es el original
 empleado?
     a. En el caso en que le agregaron más filas
     b. En el caso en que le alteraron el orden de las columnas"""
+## a. en este caso no cambió mucho ya que la función funcionaba igual, solo que aumentaba el n
+## la complejidad era igual, y encima no hubo que adaptar la función
 
-
+## b. en este caso, hubo que dedicar tiempo humano jaja, para pensar que es lo que cambió,
+## porque la compu no distingue qué numeros son salarios y cuales edad, etc
 
 """¿Y cuando a empleado le cambiaron la forma de representar las matrices (de lista 
 de filas a lista de columnas)?"""
