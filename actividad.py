@@ -39,6 +39,9 @@ superanSalarioActividad01(empleado_01, 15000)
 """¿Qué pasa si se agregan más filas a la matriz? Probar con la nueva matriz empleado_02
 ¿La función superanSalarioActividad01(empleado_02, 15000) continua funcionando?"""
 
+import numpy as np
+
+empleado_02 = np.array([[20222333,45,2,20000],[33456234,40,0,25000],[45432345,41,1,10000], [43967304,37,0,12000],[42236276,36,0,18000]])
 
 
 
