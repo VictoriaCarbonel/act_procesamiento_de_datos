@@ -43,6 +43,22 @@ import numpy as np
 
 empleado_02 = np.array([[20222333,45,2,20000],[33456234,40,0,25000],[45432345,41,1,10000], [43967304,37,0,12000],[42236276,36,0,18000]])
 
+def superanSalarioActividad01(empleado,umbral):
+    nueva_matriz=[]
+    
+    for fila in empleado:  #Costo 0(n), recorro la matriz n veces, su longitud
+        if fila[3]>= umbral:
+            nueva_matriz.append(fila) #Costo 0(1) porque lo agrego atrás?
+    
+    print(nueva_matriz)
+    
+    
+superanSalarioActividad01(empleado_02, 15000)
+
+#Rta: [array([20222333, 45, 2, 20000]), array([33456234, 40, 0, 25000]), array([42236276, 36, 0, 18000])]
+
+"""Agregar más filas a la matriz no afecta el desempeño de la función, sigue
+cumpliendo con su cometido"""
 
 
 -------------------------------------------------------------------------------
