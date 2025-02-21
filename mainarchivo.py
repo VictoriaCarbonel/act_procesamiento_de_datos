@@ -368,3 +368,33 @@ Poblacion.to_csv('Poblacion.csv')
 
 
 #%%% EJERCICIO 3
+'''
+Realizar un boxplot por cada provincia, de la cantidad de EE por cada
+departamento de la provincia. Mostrar todos los boxplots en una misma
+figura, ordenados por la mediana de cada provincia.
+'''
+consultaSQL = '''SELECT ID_DEPTO, 
+                 COUNT(*) AS Cantidad_de_EE 
+                 FROM Establecimientos_Educativos
+                 GROUP BY ID_DEPTO 
+                 ORDER BY Cantidad_de_EE''' 
+
+Cantidad_de_EE = dd.sql(consultaSQL).df()                                                  #agrupo las escuelas por departamento para ver la cantidad en cada depto
+
+Cantidad_de_EE = Cantidad_de_EE.merge(Departamentos, on='ID_DEPTO', how='left')            #agrego ID_PROV para poder agruparlos en provincias
+Cantidad_de_EE.drop(columns=['Departamento'], inplace=True)                                #elimino el nombre del departamento
+Cantidad_de_EE = Cantidad_de_EE.merge(Provincias, on='ID_PROV', how='left')                #agrego el nombre de las provincias
+
+medianas = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].median().sort_values()    #creo un df con las medianas de la cantidad de dapartamentos por provincia
+orden_provincias = medianas.index.tolist()
+
+# grafico
+plt.figure(figsize=(12,8))
+sns.boxplot(x="Provincia", y="Cantidad_de_EE", data=Cantidad_de_EE, order=orden_provincias)
+plt.xticks(rotation=90)
+plt.xlabel("Provincia")
+plt.ylabel("Cantidad de EE por Departamento")
+plt.title("Distribución de EE por Departamento en cada Provincia (ordenado por sus medianas)")
+#plt.ylim(min(Cantidad_de_EE['Cantidad_de_EE'])-50,1150)
+plt.grid(True)
+plt.show()
