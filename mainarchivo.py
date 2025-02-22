@@ -590,45 +590,63 @@ print("dominios de mail usados por centros culturales por departamento:")
 print(dominios_cc)
 
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
+# Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
+Nivel_Ed_por_Prov['Provincia'] = Nivel_Ed_por_Prov['Provincia'].replace(
+    'Tierra del Fuego, Antártida e Islas del Atlántico Sur', 
+    'Tierra del Fuego'
+)
 #%%% EJERCICIO 1
 
-
-
 #cant de CC por provincia
-consulta_cc_por_provincia = """
+consultaSQL = """
               SELECT p.Provincia, COUNT(cc.ID_CC) AS Cantidad_CC
               FROM Provincias AS p
-              LEFT JOIN Centros_Culturales AS cc ON p.ID_PROV = cc.ID_PROV
+              LEFT JOIN Centros_C AS cc ON p.ID_PROV = cc.ID_PROV
               GROUP BY p.Provincia
               ORDER BY Cantidad_CC DESC
               """
-cc_por_provincia = dd.sql(consulta_cc_por_provincia).df()
+cc_por_provincia = dd.sql(consultaSQL).df()
 
 plt.figure(figsize=(10, 6))
 sns.barplot(data=cc_por_provincia, x='Cantidad_CC', y='Provincia', palette='viridis')
-plt.title('Cantidad de CC por Provincia')
-plt.xlabel('Cantidad de CC')
+plt.title('Cantidad de Centros Culturales por Provincia')
+plt.xlabel('Cantidad de Centros Culturales')
 plt.ylabel('Provincia')
 plt.show()
 
 #%%% EJERCICIO 2
 
-# consulta 1 (de educación)
-resultado_educacion = conn.execute(consultaSQL_educacion).df()
+# Elimino la ciudad autonoma de buenos aires ya que al estar representada con un único departamento no puede ser representada con un boxplot (esta información se encuentra disponible en la primera consulta de sql)
+df_filtrado = Nivel_Ed_por_Prov[Nivel_Ed_por_Prov['Provincia'] != 'Ciudad Autónoma de Buenos Aires']
 
-# creo un df para los grupos etarios y la cantidad de primarias
-grafico_data = resultado_educacion.melt(id_vars=['Provincia', 'Departamento'], 
-                                         value_vars=['Habitantes_0_4', 'Habitantes_5_9', 
-                                                     'Habitantes_10_14', 'Habitantes_15_19'],
-                                         var_name='Grupo_Etario', 
-                                         value_name='Habitantes')
+# Calculo el total de las provincias y su orden para ponerlas de mayor a menos según cantidad de escuelas
+df_totales = df_filtrado.groupby('Provincia')[['Jardines', 'Primarias', 'Secundarios']].sum()
+df_totales['Total_EE'] = df_totales.sum(axis=1)
+order_provincias = df_totales.sort_values('Total_EE', ascending=False).index.tolist()
 
+# Transformo a formato largo para graficar
+df_long = df_filtrado.melt(
+    id_vars=['Provincia', 'Departamento'],
+    value_vars=['Jardines', 'Primarias', 'Secundarios'],
+    var_name='Grupo_Etario',
+    value_name='Cantidad_EE'
+)
 
-plt.figure(figsize=(12, 8))
-sns.barplot(data=grafico_data, x='Habitantes', y='Departamento', hue='Grupo_Etario', palette='Set2')
-plt.title('Habitantes por Grupo Etario en Departamentos')
-plt.xlabel('Cantidad de Habitantes')
-plt.ylabel('Departamento')
+# Grafico los boxplot
+plt.figure(figsize=(35,10))
+plt.rcParams.update({'font.size': 20})
+sns.boxplot(
+    data=df_long, 
+    x='Provincia', 
+    y='Cantidad_EE', 
+    hue='Grupo_Etario', 
+    palette='Set2',
+    order=order_provincias
+)
+plt.xticks(rotation=90)
+plt.xlabel('Provincia')
+plt.ylabel('Cantidad de Establecimientos Educativos')
+plt.title('Distribución de Establecimientos Educativos por Provincia y Grupo Etario')
 plt.legend(title='Grupo Etario')
 plt.show()
 
@@ -658,4 +676,76 @@ plt.xlabel("Provincia")
 plt.ylabel("Cantidad de EE por Departamento")
 plt.title("Distribución de EE por Departamento en cada Provincia (ordenado por sus medianas)")
 plt.grid(True)
+plt.show()
+
+
+#%% EJERCICIO 4 
+
+# 1. Población por provincia
+pop_depto = Reporte_Demografico.groupby("ID_DEPTO")["Poblacion"].sum().reset_index()                            # Sumo la población por departamento 
+pop_depto = pop_depto.merge(Departamentos[["ID_DEPTO", "ID_PROV"]], on="ID_DEPTO", how="left")
+pop_prov = pop_depto.groupby("ID_PROV")["Poblacion"].sum().reset_index()                                        #ahora la sumo por provincia
+pop_prov = pop_prov.merge(Provincias, on="ID_PROV", how="left")                                                 # Agrego el nombre de la provincia
+
+# 2. Establecimientos Educativos por provincia 
+EE_prov = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].sum().reset_index()                             #uso el conteo hecho anteriormente para saber cuantos EE hay por provincia
+
+# 3. Centros Culturales por provincia
+CC_prov = Centros_C.groupby("ID_PROV")["ID_CC"].count().reset_index().rename(columns={"ID_CC": "Cantidad_CC"})  #cuento los CC por provincia
+CC_prov = CC_prov.merge(Provincias, on="ID_PROV", how="left")                                                   # Agrego el nombre de la provincia
+
+
+# 4. Calcular indicadores por mil habitantes a nivel provincial
+df_EE = EE_prov.merge(pop_prov, on="Provincia", how="left")                                                     # Uno la información de EE y población (usando el nombre de provincia)
+df_EE["EE_por_1000"] = df_EE["Cantidad_de_EE"] / df_EE["Poblacion"] * 1000
+
+# Hago lo mismo para CC
+df_CC = CC_prov.merge(pop_prov, on="Provincia", how="left")
+df_CC["CC_por_1000"] = df_CC["Cantidad_CC"] / df_CC["Poblacion"] * 1000
+
+# Uno ambos indicadores en un solo DataFrame
+df_viz = df_EE.merge(df_CC[["Provincia", "CC_por_1000"]], on="Provincia", how="outer")
+
+# 5. Preparo los datos para el gráfico por provincia (dos barras por provincia)
+df_long = pd.melt(df_viz, id_vars="Provincia", 
+                  value_vars=["EE_por_1000", "CC_por_1000"],
+                  var_name="Tipo", value_name="Valor")
+# cambio los nombres
+df_long["Tipo"] = df_long["Tipo"].map({
+    "EE_por_1000": "Establecimientos Educativos",
+    "CC_por_1000": "Centros Culturales"
+})
+
+# Gráfico por provincia
+plt.figure(figsize=(12,8))
+sns.barplot(data=df_long, x="Provincia", y="Valor", hue="Tipo", palette="Set2")
+plt.xticks(rotation=90)
+plt.xlabel("Provincia")
+plt.ylabel("Cantidad por mil habitantes")
+plt.yscale("log")
+plt.title("Centros Culturales vs Establecimientos Educativos por mil habitantes por Provincia")
+plt.grid(True)
+plt.show()
+
+# 6. Calculo los indicadores a nivel nacional
+total_EE = EE_prov["Cantidad_de_EE"].sum()
+total_CC = CC_prov["Cantidad_CC"].sum()
+total_pop = pop_prov["Poblacion"].sum()
+
+EE_por_1000_nacional = total_EE / total_pop * 1000
+CC_por_1000_nacional = total_CC / total_pop * 1000
+
+df_nacional = pd.DataFrame({
+    "Tipo": ["Establecimientos Educativos", "Centros Culturales"],
+    "Valor": [EE_por_1000_nacional, CC_por_1000_nacional]
+})
+
+# Gráfico nacional
+plt.figure(figsize=(8,6))
+sns.barplot(data=df_nacional, x="Tipo", y="Valor", palette="Set2")
+plt.xlabel("")
+plt.ylabel("Cantidad por mil habitantes")
+plt.title("Comparación Nacional: Centros Culturales vs Establecimientos Educativos por mil habitantes")
+plt.yscale('log')
+plt.grid()
 plt.show()
