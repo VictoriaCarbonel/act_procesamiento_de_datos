@@ -1,5 +1,12 @@
 # -*- coding: utf-8 -*-
 """
+Created on Fri Feb 21 16:04:30 2025
+
+@author: micag
+"""
+
+# -*- coding: utf-8 -*-
+"""
 Created on Friday Feb 14 18:30:27 2025
 Alumnos: Gonzalo Caporaletti, Victoria Carbonel, Micaela Gonzalez Dardik
 Tema: Trabajo Práctico 01. Manejo y visualización de Datos
@@ -14,7 +21,8 @@ import numpy as np
 import duckdb as dd
 import re
 import unicodedata
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 # Las bases de datos necesarias para el Trabajo las guardamos en la carpeta tp01
 
 #%% FUNCIONES
@@ -41,6 +49,7 @@ CC = pd.read_csv("centros_culturales.csv")
 ee = pd.read_excel("2022_padron_oficial_establecimientos_educativos.xlsx", skiprows=6)
 
 pp = pd.read_excel("padron_poblacion.xlsx", skiprows=12)
+
 
 #%% LIMPIEZA DE DATOS
 #%% BASE de DATOS: CC
@@ -175,6 +184,9 @@ pp = pp.rename(columns={"Unnamed: 1": "Edad", "Unnamed: 2": "Poblacion", "Unname
 # elimino aquellas filas que están completamente vacías
 pp = pp.dropna(how="all")
 
+# elimino las filas donde en edad dice 'Total'
+pp = pp[pp['Edad'] != 'Total']
+
 # nuevas columnas para almacenar area y comuna
 pp["Área"], pp["Comuna"], area_actual, comuna_actual = None, None, None, None
 
@@ -214,6 +226,7 @@ pp = pp[["Departamento", "Edad", "Poblacion"]]
 
 del area_actual, comuna_actual, i, row
 
+
 #%% CREACIÓN DE LA ENTIDAD Departamentos y Provincias
 '------------------------------------Provincia---------------------------------------------------'
 
@@ -244,9 +257,13 @@ nuevos_departamentos = pd.DataFrame({
 
 Departamentos = pd.concat([Departamentos, nuevos_departamentos], ignore_index=True)
 #agreggo el ID_DEPTO
+
+
 Departamentos['ID_DEPTO'] = range(1, len(Departamentos) + 1)
+
 #le agrego las prov
 Departamentos = Departamentos.merge(ee[["Provincia", "Departamento"]], on= "Departamento", how='left')
+
 
 consultaSQL = '''SELECT DISTINCT ID_DEPTO, Departamento, Provincia FROM Departamentos ORDER BY ID_DEPTO'''
 Departamentos = dd.sql(consultaSQL).df()
@@ -267,15 +284,23 @@ Departamentos["Provincia"] = Departamentos.apply(lambda row: faltantes.get(row["
 Departamentos = Departamentos.merge(Provincias, on= "Provincia", how='left')
 Departamentos.drop(columns=['Provincia'], inplace=True)
 #%%
+
 CC.drop(columns=['ID_DEPTO', 'ID_PROV'], inplace=True)                       #Elimino la antigua columna de ID_DEPTO
 CC = CC.merge(Departamentos, on='Departamento', how='left')       #Asigno el ID_DEPTO correcto a cada fila
-
+# %%
 ee.drop(columns=['ID_PROV'], inplace=True) 
-ee = ee.merge(Departamentos, on='Departamento', how='left')       # Agrego código de departamento  
+ee = ee.merge(Departamentos, on='Departamento', how='left')       # Agrego código de departamento
 
+# %%
+pp['Departamento'] = pp['Departamento'].apply(quitar_tildes)
 pp = pp.merge(Departamentos, on='Departamento', how='left')
 pp.drop(columns=['Departamento'], inplace=True)
 pp.drop(columns=['ID_PROV'], inplace=True)
+# junto todos los de CABA
+pp = pp.groupby(['Edad', 'ID_DEPTO'], as_index=False).agg(
+    {'Poblacion': 'sum'}
+)
+
 #%%
 # Armamos las bases  a partir del DER que planteamos
 # mediante funciones de Pandas y consultas SQL
@@ -288,14 +313,16 @@ consultaSQL= """
                             """
 Establecimientos_Educativos = dd.sql(consultaSQL).df()
 
-consultaSQL = ''' SELECT ID_CC,
-                  CC.Nombre, 
-                  CC.Capacidad,
-                  CC.ID_DEPTO
+consultaSQL = ''' SELECT DISTINCT ID_CC,
+                          CC.Nombre, 
+                          CC.Capacidad,
+                          CC.ID_DEPTO,
+                          CC.ID_PROV
                   FROM CC
                   ORDER BY Nombre; '''
                   
 Centros_Culturales = dd.sql(consultaSQL).df()
+
            
 consultaSQL = """
                   SELECT 1 AS id_nivelEducativo, 'Nivel inicial - Jardín Maternal' AS Nombre UNION ALL
@@ -348,23 +375,191 @@ Provincias.to_csv('Provincias.csv')
 Mails.to_csv('Mails.csv')
 Poblacion.to_csv('Poblacion.csv')
 
+
+# %%
+
+# %%
+
+# %%
+conteo = Departamentos['Departamento'].value_counts().reset_index(name='Repeticiones')
+
+# Filtrar solo los elementos que tienen 2 o más repeticiones
+deptos_repes = conteo[conteo['Repeticiones'] >= 2]
+
         #%% EJERCICIOS DE CONSULTAS SQL
 #%%% EJERCICIO 1
+
+# para obtener escuelas y habitantes por edad
+consultaSQL_educacion = """
+              SELECT p.Provincia AS Provincia,
+                     d.Departamento AS Departamento,
+                     COUNT(CASE WHEN n.Nombre = 'Primario' THEN 1 END) AS Cantidad_Primarias,
+                     COUNT(CASE WHEN n.Nombre = 'Secundario' THEN 1 END) AS Cantidad_Secundarias,
+                     COUNT(CASE WHEN n.Nombre = 'Nivel inicial - Jardín Maternal' THEN 1 END) AS Cantidad_Jardin_Maternal,
+                     COUNT(CASE WHEN n.Nombre = 'Nivel inicial - Jardín de Infantes' THEN 1 END) AS Cantidad_Jardin_Infantes,
+                     SUM(CASE WHEN e.Edad BETWEEN 0 AND 4 THEN e.Cantidad ELSE 0 END) AS Habitantes_0_4,
+                     SUM(CASE WHEN e.Edad BETWEEN 5 AND 9 THEN e.Cantidad ELSE 0 END) AS Habitantes_5_9,
+                     SUM(CASE WHEN e.Edad BETWEEN 10 AND 14 THEN e.Cantidad ELSE 0 END) AS Habitantes_10_14,
+                     SUM(CASE WHEN e.Edad BETWEEN 15 AND 19 THEN e.Cantidad ELSE 0 END) AS Habitantes_15_19
+              FROM Departamentos AS d
+              JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
+              LEFT JOIN nivelEducativo_ee AS ne ON d.ID_DEPTO = ne.ID_DEPTO
+              LEFT JOIN nivelEducativo AS n ON ne.id_nivelEducativo = n.id_nivelEducativo
+              LEFT JOIN HabitantesPorEdad AS e ON d.ID_DEPTO = e.ID_DEPTO
+              WHERE n.Modalidad = 'Común'
+              GROUP BY p.Provincia, d.Departamento
+              ORDER BY p.Provincia ASC, Cantidad_Primarias DESC
+              """
+resultado_educacion = conn.execute(consultaSQL_educacion).df()
+print("reporte de departamentos con escuelas y habitantes por edad:")
+print(resultado_educacion)
 
 
 #%%% EJERCICIO 2
 
+# obtener departamentos con sus provincias
+consultaSQL_departamentos = """
+                SELECT d.ID_DEPTO, d.Departamento, d.ID_PROV, p.Provincia
+                FROM Departamentos AS d
+                JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
+              """
+departamentos_con_provincias = conn.execute(consultaSQL_departamentos).df()
+print("departamentos con sus provincias:")
+print(departamentos_con_provincias)
+
+# %% 
+
+# centros culturales con capacidad > 100
+consultaSQL_cc_filtrados = """
+                SELECT cc.ID_CC, cc.Nombre, cc.ID_DEPTO, cc.ID_PROV, cc.Capacidad
+                FROM Centros_Culturales AS cc
+                WHERE cc.Capacidad NOT IN ('s/d')
+                AND CAST(cc.Capacidad AS INTEGER) > 100
+              """
+centros_culturales_filtrados = conn.execute(consultaSQL_cc_filtrados).df()
+print("centros culturales con capacidad > 100:")
+print(centros_culturales_filtrados)
+
+# %% 
+
+# uno los datos de centros culturales con departamentos y provincias
+consultaSQL_final = """
+                SELECT p.Provincia AS Provincia,
+                       d.Departamento AS Departamento,
+                       COALESCE(cc.Cantidad_CC, 0) AS Cantidad_CC
+                FROM Departamentos AS d
+                JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
+                LEFT JOIN (
+                    SELECT cc.ID_DEPTO, cc.ID_PROV, COUNT(cc.ID_CC) AS Cantidad_CC
+                    FROM Centros_Culturales AS cc
+                    WHERE cc.Capacidad NOT IN ('s/d')
+                    AND CAST(cc.Capacidad AS INTEGER) > 100
+                    GROUP BY cc.ID_DEPTO, cc.ID_PROV
+                ) AS cc ON d.ID_DEPTO = cc.ID_DEPTO AND d.ID_PROV = cc.ID_PROV
+                ORDER BY p.Provincia ASC, Cantidad_CC DESC
+              """
+reporte_final = conn.execute(consultaSQL_final).df()
+print("reporte final de departamentos con cantidad de cc (capacidad > 100):")
+print(reporte_final)
 
 #%%% EJERCICIO 3
 
+# cant de CC, EE y poblacion total por depto
+consultaSQL_reporte = """
+              SELECT p.Provincia AS Provincia,
+                     d.Departamento AS Departamento,
+                     COALESCE(cc.Cantidad_CC, 0) AS Cantidad_CC,
+                     COALESCE(ee.Cantidad_EE, 0) AS Cantidad_EE,
+                     SUM(h.Cantidad) AS Poblacion_Total
+              FROM Departamentos AS d
+              JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
+              LEFT JOIN (
+                  SELECT ID_DEPTO, COUNT(ID_CC) AS Cantidad_CC
+                  FROM Centros_Culturales
+                  GROUP BY ID_DEPTO
+              ) AS cc ON d.ID_DEPTO = cc.ID_DEPTO
+              LEFT JOIN (
+                  SELECT d.ID_DEPTO, COUNT(ne.ID_EE) AS Cantidad_EE
+                  FROM nivelEducativo_ee AS ne
+                  JOIN Departamentos AS d ON ne.ID_DEPTO = d.ID_DEPTO
+                  JOIN nivelEducativo AS n ON ne.id_nivelEducativo = n.id_nivelEducativo
+                  WHERE n.Modalidad = 'Común'
+                  GROUP BY d.ID_DEPTO
+              ) AS ee ON d.ID_DEPTO = ee.ID_DEPTO
+              LEFT JOIN HabitantesPorEdad AS h ON d.ID_DEPTO = h.ID_DEPTO
+              GROUP BY p.Provincia, d.Departamento
+              ORDER BY ee.Cantidad_EE DESC, cc.Cantidad_CC DESC, p.Provincia ASC, d.Departamento ASC
+              """
+resultado_reporte = conn.execute(consultaSQL_reporte).df()
+print("reporte de departamentos con cantidad de CC, EE y población total:")
+print(resultado_reporte)
 
 #%%% EJERCICIO 4
+consulta_provincias_departamentos = """
+                           SELECT p.Provincia, d.Departamento
+                           FROM Provincias AS p
+                           INNER JOIN Departamentos AS d 
+                           ON p.ID_PROV = d.ID_PROV
+                           """
+provincias_departamentos = dd.sql(consulta_provincias_departamentos).df()
 
+# contar los dominios de mail usados en los CC
+consulta_dominios = """
+           SELECT d.Departamento, p.Provincia,
+                  SPLIT_PART(mail, '@', 2) AS Dominio,
+                  COUNT(*) AS Cantidad
+           FROM Centros_Culturales AS cc
+           JOIN Provincias AS p ON cc.ID_PROV = p.ID_PROV
+           JOIN Departamentos AS d ON cc.ID_DEPTO = d.ID_DEPTO
+           GROUP BY d.Departamento, p.Provincia, Dominio
+           ORDER BY d.Departamento, Cantidad DESC
+           """
+dominios_cc = dd.sql(consulta_dominios).df()
+
+print("dominios de mail usados por centros culturales por departamento:")
+print(dominios_cc)
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
 #%%% EJERCICIO 1
 
 
+
+#cant de CC por provincia
+consulta_cc_por_provincia = """
+              SELECT p.Provincia, COUNT(cc.ID_CC) AS Cantidad_CC
+              FROM Provincias AS p
+              LEFT JOIN Centros_Culturales AS cc ON p.ID_PROV = cc.ID_PROV
+              GROUP BY p.Provincia
+              ORDER BY Cantidad_CC DESC
+              """
+cc_por_provincia = dd.sql(consulta_cc_por_provincia).df()
+
+plt.figure(figsize=(10, 6))
+sns.barplot(data=cc_por_provincia, x='Cantidad_CC', y='Provincia', palette='viridis')
+plt.title('Cantidad de CC por Provincia')
+plt.xlabel('Cantidad de CC')
+plt.ylabel('Provincia')
+plt.show()
+
 #%%% EJERCICIO 2
+
+# consulta 1 (de educación)
+resultado_educacion = conn.execute(consultaSQL_educacion).df()
+
+# creo un df para los grupos etarios y la cantidad de primarias
+grafico_data = resultado_educacion.melt(id_vars=['Provincia', 'Departamento'], 
+                                         value_vars=['Habitantes_0_4', 'Habitantes_5_9', 
+                                                     'Habitantes_10_14', 'Habitantes_15_19'],
+                                         var_name='Grupo_Etario', 
+                                         value_name='Habitantes')
+
+
+plt.figure(figsize=(12, 8))
+sns.barplot(data=grafico_data, x='Habitantes', y='Departamento', hue='Grupo_Etario', palette='Set2')
+plt.title('Habitantes por Grupo Etario en Departamentos')
+plt.xlabel('Cantidad de Habitantes')
+plt.ylabel('Departamento')
+plt.legend(title='Grupo Etario')
+plt.show()
 
 
 #%%% EJERCICIO 3
@@ -373,6 +568,7 @@ Realizar un boxplot por cada provincia, de la cantidad de EE por cada
 departamento de la provincia. Mostrar todos los boxplots en una misma
 figura, ordenados por la mediana de cada provincia.
 '''
+
 consultaSQL = '''SELECT ID_DEPTO, 
                  COUNT(*) AS Cantidad_de_EE 
                  FROM Establecimientos_Educativos
