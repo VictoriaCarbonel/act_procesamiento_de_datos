@@ -345,7 +345,7 @@ Nivel_Educativo_de_ee = dd.sql(consultaSQL).df()
 
 consultaSQL= '''SELECT * FROM pp'''
 
-Poblacion = dd.sql(consultaSQL).df()
+Reporte_Demografico = dd.sql(consultaSQL).df()
 
 '-----------------------------------------Creo la entidad débil Mails_CC-----------------------------'
 Mails = CC.copy()
@@ -366,7 +366,7 @@ Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv')
 Departamentos.to_csv('Departamentos.csv')
 Provincias.to_csv('Provincias.csv')
 Mails.to_csv('Mails.csv')
-Poblacion.to_csv('Poblacion.csv')
+Reporte_Demografico.to_csv('Reporte_Demografico.csv')
 
 
         #%% EJERCICIOS DE CONSULTAS SQL
