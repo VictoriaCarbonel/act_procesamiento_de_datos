@@ -239,7 +239,7 @@ ee.drop(columns=['ID_PROV'], errors='ignore', inplace=True)
 ee = ee.merge(Provincias, on='Provincia', how='left')
 
 '------------------------------------Departamento------------------------------------------------'
-consultaSQL = ''' SELECT DISTINCT Departamento FROM ee ORDER BY Departamento '''
+consultaSQL = ''' SELECT DISTINCT Departamento, Provincia FROM ee ORDER BY Departamento '''
 
 Departamentos = dd.sql(consultaSQL).df()
 
@@ -257,13 +257,7 @@ nuevos_departamentos = pd.DataFrame({
 
 Departamentos = pd.concat([Departamentos, nuevos_departamentos], ignore_index=True)
 #agreggo el ID_DEPTO
-
-
 Departamentos['ID_DEPTO'] = range(1, len(Departamentos) + 1)
-
-#le agrego las prov
-Departamentos = Departamentos.merge(ee[["Provincia", "Departamento"]], on= "Departamento", how='left')
-
 
 consultaSQL = '''SELECT DISTINCT ID_DEPTO, Departamento, Provincia FROM Departamentos ORDER BY ID_DEPTO'''
 Departamentos = dd.sql(consultaSQL).df()
@@ -285,11 +279,10 @@ Departamentos = Departamentos.merge(Provincias, on= "Provincia", how='left')
 Departamentos.drop(columns=['Provincia'], inplace=True)
 #%%
 
-CC.drop(columns=['ID_DEPTO', 'ID_PROV'], inplace=True)                       #Elimino la antigua columna de ID_DEPTO
-CC = CC.merge(Departamentos, on='Departamento', how='left')       #Asigno el ID_DEPTO correcto a cada fila
+CC.drop(columns=['ID_DEPTO'], inplace=True)                                    #Elimino la antigua columna de ID_DEPTO
+CC = CC.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       #Asigno el ID_DEPTO correcto a cada fila
 # %%
-ee.drop(columns=['ID_PROV'], inplace=True) 
-ee = ee.merge(Departamentos, on='Departamento', how='left')       # Agrego código de departamento
+ee = ee.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Agrego código de departamento
 
 # %%
 pp['Departamento'] = pp['Departamento'].apply(quitar_tildes)
@@ -375,16 +368,6 @@ Provincias.to_csv('Provincias.csv')
 Mails.to_csv('Mails.csv')
 Poblacion.to_csv('Poblacion.csv')
 
-
-# %%
-
-# %%
-
-# %%
-conteo = Departamentos['Departamento'].value_counts().reset_index(name='Repeticiones')
-
-# Filtrar solo los elementos que tienen 2 o más repeticiones
-deptos_repes = conteo[conteo['Repeticiones'] >= 2]
 
         #%% EJERCICIOS DE CONSULTAS SQL
 #%%% EJERCICIO 1
@@ -518,6 +501,7 @@ dominios_cc = dd.sql(consulta_dominios).df()
 
 print("dominios de mail usados por centros culturales por departamento:")
 print(dominios_cc)
+
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
 #%%% EJERCICIO 1
 
