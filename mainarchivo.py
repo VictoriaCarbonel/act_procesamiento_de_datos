@@ -318,7 +318,7 @@ Centros_Culturales = dd.sql(consultaSQL).df()
 
            
 consultaSQL = """
-                  SELECT 1 AS id_nivelEducativo, 'Nivel inicial - Jardín Maternal' AS Nombre UNION ALL
+                  SELECT 1 AS id_Nivel_Educativo, 'Nivel inicial - Jardín Maternal' AS Nombre UNION ALL
                   SELECT 2, 'Nivel inicial - Jardín de Infantes' UNION ALL
                   SELECT 3, 'Primario' UNION ALL
                   SELECT 4, 'Secundario' UNION ALL
@@ -329,7 +329,7 @@ consultaSQL = """
 Nivel_Educativo = dd.sql(consultaSQL).df()
 
 consultaSQL = """
-                    SELECT DISTINCT cueanexo, id_nivelEducativo
+                    SELECT DISTINCT cueanexo, id_Nivel_Educativo
                     FROM ee AS e
                     INNER JOIN Nivel_Educativo AS m 
                     ON (e."Nivel inicial - Jardín Maternal" = '1' AND m.Nombre = 'Nivel inicial - Jardín Maternal') OR
@@ -372,30 +372,118 @@ Poblacion.to_csv('Poblacion.csv')
         #%% EJERCICIOS DE CONSULTAS SQL
 #%%% EJERCICIO 1
 
-# para obtener escuelas y habitantes por edad
+# %%
+
+# Consulto Establecimientos Educativos por Nivel en cada departamento
+consulta_ee_por_nivel = '''
+            SELECT 
+                d.ID_DEPTO,
+                d.Departamento,
+                p.Provincia,
+                SUM(CASE WHEN ne.id_nivelEducativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
+                SUM(CASE WHEN ne.id_nivelEducativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
+                SUM(CASE WHEN ne.id_nivelEducativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria,
+                SUM(CASE WHEN ne.id_nivelEducativo = 4 THEN 1 ELSE 0 END) AS Cant_Escuelas_Superior
+                FROM Departamentos d
+                JOIN Provincias p ON d.ID_PROV = p.ID_PROV
+                LEFT JOIN Establecimientos_Educativos ee ON d.ID_DEPTO = ee.ID_DEPTO
+                LEFT JOIN Nivel_Educativo ne ON ee.Cueanexo = ne.Cueanexo
+                WHERE ne.id_nivelEducativo IN (1, 2, 3, 4)  -- Solo niveles comunes
+                GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
+                ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC;
+                '''
+                
+ee_por_niv = dd.sql(consulta_ee_por_nivel).df()
+# %% PRUEBA PARA EXPORTAR TABLA a LATEX
+# Exportar a LaTeX con formato personalizado
+latex_table = ee_por_niv.head().to_latex(index=False, escape=False, 
+    column_format='|l|l|c|c|c|c|c|c|', 
+    multirow=False, 
+    longtable=False)
+
+# Agregar encabezados y configuración adicional
+latex_table = f"""
+\\begin{{table}}[H]
+    \\centering
+    \\small % Reduce el tamaño de la fuente
+    \\renewcommand{{\\arraystretch}}{{1.2}} % Ajuste del espaciado entre filas
+    \\setlength{{\\tabcolsep}}{{4pt}} % Reduce el espacio entre columnas
+    \\resizebox{{\\textwidth}}{{!}}{{ % Ajusta la tabla al ancho de la página
+    {latex_table}
+    \\hline
+    }}
+    \\caption{{Distribución de establecimientos educativos y población por nivel educativo.}}
+    \\label{{tab:reporte_departamentos}}
+\\end{{table}}
+"""
+
+# Guardar en un archivo .tex
+with open('tabla.tex', 'w') as f:
+    f.write(latex_table)
+
+print("La tabla se ha exportado a 'tabla.tex'.")
+
+# %% PRUEBA PARA EXPORTAR TABLA como IMAGEN
+
+# Crear la figura y el eje
+fig, ax = plt.subplots(figsize=(10, 4))
+
+# Crear la tabla
+ax.table(cellText=ee_por_niv.head().values,
+         colLabels=ee_por_niv.columns,
+         cellLoc='center',
+         loc='center')
+
+# Desactivar los ejes y ajustar el diseño
+ax.axis('off')
+plt.savefig('tabla.png', bbox_inches='tight', dpi=300)  # Guardar como PNG
+plt.show()  # Mostrar la tabla
+
+print("La tabla se ha exportado como 'tabla.png'.")
+
+# %%
+
+# Consulto Poblacion por Nivel Educativos en cada departamento
+# ATENCION: puse edades arbitrarias hay que cambiarlo sí o sí
+
+consulta_pob_por_nivel = '''
+            SELECT 
+                ID_DEPTO,
+                SUM(CASE WHEN Edad BETWEEN 3 AND 5 THEN Poblacion ELSE 0 END) AS Poblacion_Inicial,
+                SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
+                SUM(CASE WHEN Edad BETWEEN 13 AND 17 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria,
+                SUM(CASE WHEN Edad >= 18 THEN Poblacion ELSE 0 END) AS Poblacion_Superior
+            FROM Poblacion
+            GROUP BY ID_DEPTO;
+'''             
+pob_por_niv = dd.sql(consulta_pob_por_nivel).df()
+
+# %% AYUDA ACA GONZA lol
+
+# Tengo que consultar para JOIN las dos consultas anteriores
 consultaSQL_educacion = """
-              SELECT p.Provincia AS Provincia,
-                     d.Departamento AS Departamento,
-                     COUNT(CASE WHEN n.Nombre = 'Primario' THEN 1 END) AS Cantidad_Primarias,
-                     COUNT(CASE WHEN n.Nombre = 'Secundario' THEN 1 END) AS Cantidad_Secundarias,
-                     COUNT(CASE WHEN n.Nombre = 'Nivel inicial - Jardín Maternal' THEN 1 END) AS Cantidad_Jardin_Maternal,
-                     COUNT(CASE WHEN n.Nombre = 'Nivel inicial - Jardín de Infantes' THEN 1 END) AS Cantidad_Jardin_Infantes,
-                     SUM(CASE WHEN e.Edad BETWEEN 0 AND 4 THEN e.Cantidad ELSE 0 END) AS Habitantes_0_4,
-                     SUM(CASE WHEN e.Edad BETWEEN 5 AND 9 THEN e.Cantidad ELSE 0 END) AS Habitantes_5_9,
-                     SUM(CASE WHEN e.Edad BETWEEN 10 AND 14 THEN e.Cantidad ELSE 0 END) AS Habitantes_10_14,
-                     SUM(CASE WHEN e.Edad BETWEEN 15 AND 19 THEN e.Cantidad ELSE 0 END) AS Habitantes_15_19
-              FROM Departamentos AS d
-              JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
-              LEFT JOIN nivelEducativo_ee AS ne ON d.ID_DEPTO = ne.ID_DEPTO
-              LEFT JOIN nivelEducativo AS n ON ne.id_nivelEducativo = n.id_nivelEducativo
-              LEFT JOIN HabitantesPorEdad AS e ON d.ID_DEPTO = e.ID_DEPTO
-              WHERE n.Modalidad = 'Común'
-              GROUP BY p.Provincia, d.Departamento
-              ORDER BY p.Provincia ASC, Cantidad_Primarias DESC
-              """
+        # JOIN los DF ee_por_nivel_por_depto y pob_por_nivel_por_depto
+        resultado_final = pd.merge(ee_por_niv, pob_por_niv, on='ID_DEPTO', how='left')
+        
+        # renombramos y ordenamos las columnas para la consigna
+        resultado_final.rename(columns={
+            'Poblacion_Inicial': 'Población Inicial',
+            'Poblacion_Primaria': 'Población Primaria',
+            'Poblacion_Secundaria': 'Población Secundaria',
+            'Poblacion_Superior': 'Población Superior',
+        }, inplace=True)
+        
+        # Ver los resultados finales
+        print(resultado_final)
+        
+                      """
 resultado_educacion = conn.execute(consultaSQL_educacion).df()
 print("reporte de departamentos con escuelas y habitantes por edad:")
 print(resultado_educacion)
+# %%
+
+# %%
+
 
 
 #%%% EJERCICIO 2
@@ -463,9 +551,9 @@ consultaSQL_reporte = """
               ) AS cc ON d.ID_DEPTO = cc.ID_DEPTO
               LEFT JOIN (
                   SELECT d.ID_DEPTO, COUNT(ne.ID_EE) AS Cantidad_EE
-                  FROM nivelEducativo_ee AS ne
+                  FROM Nivel_Educativo_ee AS ne
                   JOIN Departamentos AS d ON ne.ID_DEPTO = d.ID_DEPTO
-                  JOIN nivelEducativo AS n ON ne.id_nivelEducativo = n.id_nivelEducativo
+                  JOIN Nivel_Educativo AS n ON ne.id_Nivel_Educativo = n.id_Nivel_Educativo
                   WHERE n.Modalidad = 'Común'
                   GROUP BY d.ID_DEPTO
               ) AS ee ON d.ID_DEPTO = ee.ID_DEPTO
