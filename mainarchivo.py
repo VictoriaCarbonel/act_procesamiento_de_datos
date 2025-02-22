@@ -359,14 +359,14 @@ Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento',
 
 #%% Exporto los DF
 
-Centros_Culturales.to_csv('Centro_Cultural.csv')
-Establecimientos_Educativos.to_csv('Establecimientos_Educativos.csv')
-Nivel_Educativo.to_csv('Nivel_Educativo.csv')
-Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv')
-Departamentos.to_csv('Departamentos.csv')
-Provincias.to_csv('Provincias.csv')
-Mails.to_csv('Mails.csv')
-Reporte_Demografico.to_csv('Reporte_Demografico.csv')
+Centros_Culturales.to_csv('Centro_Cultural.csv', index=False)
+Establecimientos_Educativos.to_csv('Establecimientos_Educativos.csv', index=False)
+Nivel_Educativo.to_csv('Nivel_Educativo.csv', index=False)
+Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv', index=False)
+Departamentos.to_csv('Departamentos.csv', index=False)
+Provincias.to_csv('Provincias.csv', index=False)
+Mails.to_csv('Mails.csv', index=False)
+Reporte_Demografico.to_csv('Reporte_Demografico.csv', index=False)
 
 
         #%% EJERCICIOS DE CONSULTAS SQL
