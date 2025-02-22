@@ -634,11 +634,6 @@ plt.show()
 
 
 #%%% EJERCICIO 3
-'''
-Realizar un boxplot por cada provincia, de la cantidad de EE por cada
-departamento de la provincia. Mostrar todos los boxplots en una misma
-figura, ordenados por la mediana de cada provincia.
-'''
 
 consultaSQL = '''SELECT ID_DEPTO, 
                  COUNT(*) AS Cantidad_de_EE 
@@ -657,11 +652,10 @@ orden_provincias = medianas.index.tolist()
 
 # grafico
 plt.figure(figsize=(12,8))
-sns.boxplot(x="Provincia", y="Cantidad_de_EE", data=Cantidad_de_EE, order=orden_provincias)
+sns.boxplot(x="Provincia", y="Cantidad_de_EE", data=Cantidad_de_EE, order=orden_provincias, palette="viridis")
 plt.xticks(rotation=90)
 plt.xlabel("Provincia")
 plt.ylabel("Cantidad de EE por Departamento")
 plt.title("Distribución de EE por Departamento en cada Provincia (ordenado por sus medianas)")
-#plt.ylim(min(Cantidad_de_EE['Cantidad_de_EE'])-50,1150)
 plt.grid(True)
 plt.show()
