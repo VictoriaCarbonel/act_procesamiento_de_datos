@@ -304,7 +304,7 @@ consultaSQL= """
                 ID_DEPTO
                 FROM ee;
                             """
-Establecimientos_Educativos = dd.sql(consultaSQL).df()
+Establecimientos_E = dd.sql(consultaSQL).df()
 
 consultaSQL = ''' SELECT DISTINCT ID_CC,
                           CC.Nombre, 
@@ -314,7 +314,7 @@ consultaSQL = ''' SELECT DISTINCT ID_CC,
                   FROM CC
                   ORDER BY Nombre; '''
                   
-Centros_Culturales = dd.sql(consultaSQL).df()
+Centros_C = dd.sql(consultaSQL).df()
 
            
 consultaSQL = """
@@ -359,8 +359,8 @@ Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento',
 
 #%% Exporto los DF
 
-Centros_Culturales.to_csv('Centros_Culturales.csv', index=False)
-Establecimientos_Educativos.to_csv('Establecimientos_Educativos.csv', index=False)
+Centros_C.to_csv('Centros_Cs.csv', index=False)
+Establecimientos_E.to_csv('Establecimientos_E.csv', index=False)
 Nivel_Educativo.to_csv('Nivel_Educativo.csv', index=False)
 Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv', index=False)
 Departamentos.to_csv('Departamentos.csv', index=False)
@@ -386,7 +386,7 @@ consulta_ee_por_nivel = '''
                 SUM(CASE WHEN ne.id_Nivel_Educativo = 4 THEN 1 ELSE 0 END) AS Cant_Escuelas_Superior
                 FROM Departamentos AS d
                 JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
-                LEFT JOIN Establecimientos_Educativos AS ee ON d.ID_DEPTO = ee.ID_DEPTO
+                LEFT JOIN Establecimientos_E AS ee ON d.ID_DEPTO = ee.ID_DEPTO
                 LEFT JOIN Nivel_Educativo AS ne ON ee.Cueanexo = ne.Cueanexo
                 WHERE ne.id_Nivel_Educativo IN (1, 2, 3, 4)  -- Solo niveles comunes
                 GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
@@ -643,7 +643,7 @@ figura, ordenados por la mediana de cada provincia.
 
 consultaSQL = '''SELECT ID_DEPTO, 
                  COUNT(*) AS Cantidad_de_EE 
-                 FROM Establecimientos_Educativos
+                 FROM Establecimientos_E
                  GROUP BY ID_DEPTO 
                  ORDER BY Cantidad_de_EE''' 
 
