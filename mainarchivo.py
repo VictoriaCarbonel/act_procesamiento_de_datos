@@ -356,6 +356,7 @@ Mails = Mails.explode("mails_extraidos", ignore_index=True)                     
 Mails = Mails.drop(columns=["Mail"]).rename(columns={"mails_extraidos": "Mail"})                           # Renombro la columna
 Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento', 'Nombre', 'Capacidad' ]) # Elimino los atributos que no forman parte de la entidad
 
+Departamentos['Departamento'] = Departamentos['Departamento'].str.title()
 
 #%% Exporto los DF
 
