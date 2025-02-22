@@ -588,13 +588,8 @@ dominios_cc = dd.sql(consulta_dominios).df()
 
 print("dominios de mail usados por centros culturales por departamento:")
 print(dominios_cc)
-
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
-# Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
-Nivel_Ed_por_Prov['Provincia'] = Nivel_Ed_por_Prov['Provincia'].replace(
-    'Tierra del Fuego, Antártida e Islas del Atlántico Sur', 
-    'Tierra del Fuego'
-)
+
 #%%% EJERCICIO 1
 
 #cant de CC por provincia
@@ -607,7 +602,14 @@ consultaSQL = """
               """
 cc_por_provincia = dd.sql(consultaSQL).df()
 
+#cambio los nombres a tierra del fuego y caba para que el gráfico sea más legible
+cc_por_provincia['Provincia'] = cc_por_provincia['Provincia'].replace({
+    'Tierra del Fuego, Antártida e Islas del Atlántico Sur':'Tierra del Fuego',
+    'Ciudad Autónoma de Buenos Aires':'CABA'
+})
+
 plt.figure(figsize=(10, 6))
+plt.rcParams.update({'font.size': 11})
 sns.barplot(data=cc_por_provincia, x='Cantidad_CC', y='Provincia', palette='viridis')
 plt.title('Cantidad de Centros Culturales por Provincia')
 plt.xlabel('Cantidad de Centros Culturales')
@@ -615,7 +617,11 @@ plt.ylabel('Provincia')
 plt.show()
 
 #%%% EJERCICIO 2
-
+# Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
+Nivel_Ed_por_Prov['Provincia'] = Nivel_Ed_por_Prov['Provincia'].replace(
+    'Tierra del Fuego, Antártida e Islas del Atlántico Sur', 
+    'Tierra del Fuego'
+)
 # Elimino la ciudad autonoma de buenos aires ya que al estar representada con un único departamento no puede ser representada con un boxplot (esta información se encuentra disponible en la primera consulta de sql)
 df_filtrado = Nivel_Ed_por_Prov[Nivel_Ed_por_Prov['Provincia'] != 'Ciudad Autónoma de Buenos Aires']
 
@@ -632,9 +638,10 @@ df_long = df_filtrado.melt(
     value_name='Cantidad_EE'
 )
 
+
 # Grafico los boxplot
 plt.figure(figsize=(35,10))
-plt.rcParams.update({'font.size': 20})
+plt.rcParams.update({'font.size': 25})
 sns.boxplot(
     data=df_long, 
     x='Provincia', 
@@ -645,7 +652,7 @@ sns.boxplot(
 )
 plt.xticks(rotation=90)
 plt.xlabel('Provincia')
-plt.ylabel('Cantidad de Establecimientos Educativos')
+plt.ylabel('Cantidad de EE')
 plt.title('Distribución de Establecimientos Educativos por Provincia y Grupo Etario')
 plt.legend(title='Grupo Etario')
 plt.show()
@@ -663,19 +670,26 @@ Cantidad_de_EE = dd.sql(consultaSQL).df()                                       
 
 Cantidad_de_EE = Cantidad_de_EE.merge(Departamentos, on='ID_DEPTO', how='left')            #agrego ID_PROV para poder agruparlos en provincias
 Cantidad_de_EE.drop(columns=['Departamento'], inplace=True)                                #elimino el nombre del departamento
-Cantidad_de_EE = Cantidad_de_EE.merge(Provincias, on='ID_PROV', how='left')                #agrego el nombre de las provincias
+Cantidad_de_EE = Cantidad_de_EE.merge(Provincias, on='ID_PROV', how='left')
+                #agrego el nombre de las provincias
+# Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
+Cantidad_de_EE['Provincia'] = Cantidad_de_EE['Provincia'].replace(
+    'Tierra del Fuego, Antártida e Islas del Atlántico Sur', 
+    'Tierra del Fuego'
+)
+# Elimino la ciudad autonoma de buenos aires ya que al estar representada con un único departamento no puede ser representada con un boxplot
+df_filtrado2 = Cantidad_de_EE[Cantidad_de_EE['Provincia'] != 'Ciudad Autónoma de Buenos Aires']
 
-medianas = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].median().sort_values()    #creo un df con las medianas de la cantidad de dapartamentos por provincia
+medianas = df_filtrado2.groupby("Provincia")["Cantidad_de_EE"].median().sort_values()    #creo un df con las medianas de la cantidad de dapartamentos por provincia
 orden_provincias = medianas.index.tolist()
 
 # grafico
-plt.figure(figsize=(12,8))
-sns.boxplot(x="Provincia", y="Cantidad_de_EE", data=Cantidad_de_EE, order=orden_provincias, palette="viridis")
+plt.figure(figsize=(20,12))
+sns.boxplot(x="Provincia", y="Cantidad_de_EE", data=df_filtrado2, order=orden_provincias, palette="viridis")
 plt.xticks(rotation=90)
 plt.xlabel("Provincia")
 plt.ylabel("Cantidad de EE por Departamento")
-plt.title("Distribución de EE por Departamento en cada Provincia (ordenado por sus medianas)")
-plt.grid(True)
+plt.title("Distribución de EE por Departamento en cada Provincia")
 plt.show()
 
 
@@ -716,8 +730,14 @@ df_long["Tipo"] = df_long["Tipo"].map({
     "CC_por_1000": "Centros Culturales"
 })
 
+#cambio los nombres a tierra del fuego y caba para que el gráfico sea más legible
+df_long['Provincia'] = df_long['Provincia'].replace({
+    'Tierra del Fuego, Antártida e Islas del Atlántico Sur':'Tierra del Fuego',
+    'Ciudad Autónoma de Buenos Aires':'CABA'
+})
+
 # Gráfico por provincia
-plt.figure(figsize=(12,8))
+plt.figure(figsize=(25,15))
 sns.barplot(data=df_long, x="Provincia", y="Valor", hue="Tipo", palette="Set2")
 plt.xticks(rotation=90)
 plt.xlabel("Provincia")
@@ -741,7 +761,7 @@ df_nacional = pd.DataFrame({
 })
 
 # Gráfico nacional
-plt.figure(figsize=(8,6))
+plt.figure(figsize=(20,15))
 sns.barplot(data=df_nacional, x="Tipo", y="Valor", palette="Set2")
 plt.xlabel("")
 plt.ylabel("Cantidad por mil habitantes")
