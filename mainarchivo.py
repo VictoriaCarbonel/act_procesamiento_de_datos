@@ -341,7 +341,7 @@ consultaSQL = """
                    (e."SNU - INET" = '1' AND m.Nombre = 'SNU - INET')
                    ORDER BY cueanexo;
               """
-Nivel_Educativo = dd.sql(consultaSQL).df()            
+Nivel_Educativo_de_ee = dd.sql(consultaSQL).df()            
 
 consultaSQL= '''SELECT * FROM pp'''
 
@@ -362,7 +362,7 @@ Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento',
 Centros_Culturales.to_csv('Centro_Cultural.csv')
 Establecimientos_Educativos.to_csv('Establecimientos_Educativos.csv')
 Nivel_Educativo.to_csv('Nivel_Educativo.csv')
-Nivel_Educativo.to_csv('Nivel_Educativo.csv')
+Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv')
 Departamentos.to_csv('Departamentos.csv')
 Provincias.to_csv('Provincias.csv')
 Mails.to_csv('Mails.csv')
@@ -380,15 +380,15 @@ consulta_ee_por_nivel = '''
                 d.ID_DEPTO,
                 d.Departamento,
                 p.Provincia,
-                SUM(CASE WHEN ne.id_nivelEducativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
-                SUM(CASE WHEN ne.id_nivelEducativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
-                SUM(CASE WHEN ne.id_nivelEducativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria,
-                SUM(CASE WHEN ne.id_nivelEducativo = 4 THEN 1 ELSE 0 END) AS Cant_Escuelas_Superior
-                FROM Departamentos d
-                JOIN Provincias p ON d.ID_PROV = p.ID_PROV
-                LEFT JOIN Establecimientos_Educativos ee ON d.ID_DEPTO = ee.ID_DEPTO
-                LEFT JOIN Nivel_Educativo ne ON ee.Cueanexo = ne.Cueanexo
-                WHERE ne.id_nivelEducativo IN (1, 2, 3, 4)  -- Solo niveles comunes
+                SUM(CASE WHEN ne.id_Nivel_Educativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
+                SUM(CASE WHEN ne.id_Nivel_Educativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
+                SUM(CASE WHEN ne.id_Nivel_Educativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria,
+                SUM(CASE WHEN ne.id_Nivel_Educativo = 4 THEN 1 ELSE 0 END) AS Cant_Escuelas_Superior
+                FROM Departamentos AS d
+                JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
+                LEFT JOIN Establecimientos_Educativos AS ee ON d.ID_DEPTO = ee.ID_DEPTO
+                LEFT JOIN Nivel_Educativo AS ne ON ee.Cueanexo = ne.Cueanexo
+                WHERE ne.id_Nivel_Educativo IN (1, 2, 3, 4)  -- Solo niveles comunes
                 GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
                 ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC;
                 '''
