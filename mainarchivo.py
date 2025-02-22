@@ -359,7 +359,7 @@ Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento',
 
 #%% Exporto los DF
 
-Centros_Culturales.to_csv('Centro_Cultural.csv', index=False)
+Centros_Culturales.to_csv('Centros_Culturales.csv', index=False)
 Establecimientos_Educativos.to_csv('Establecimientos_Educativos.csv', index=False)
 Nivel_Educativo.to_csv('Nivel_Educativo.csv', index=False)
 Nivel_Educativo_de_ee.to_csv('Nivel_Educativo_de_ee.csv', index=False)
