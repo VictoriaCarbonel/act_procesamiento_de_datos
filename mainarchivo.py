@@ -375,25 +375,86 @@ Reporte_Demografico.to_csv('Reporte_Demografico.csv', index=False)
 # %%
 
 # Consulto Establecimientos Educativos por Nivel en cada departamento
-consulta_ee_por_nivel = '''
+consultaSQL = '''
             SELECT 
                 d.ID_DEPTO,
                 d.Departamento,
                 p.Provincia,
                 SUM(CASE WHEN ne.id_Nivel_Educativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
                 SUM(CASE WHEN ne.id_Nivel_Educativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
-                SUM(CASE WHEN ne.id_Nivel_Educativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria,
-                SUM(CASE WHEN ne.id_Nivel_Educativo = 4 THEN 1 ELSE 0 END) AS Cant_Escuelas_Superior
+                SUM(CASE WHEN ne.id_Nivel_Educativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria
                 FROM Departamentos AS d
                 JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
                 LEFT JOIN Establecimientos_E AS ee ON d.ID_DEPTO = ee.ID_DEPTO
-                LEFT JOIN Nivel_Educativo AS ne ON ee.Cueanexo = ne.Cueanexo
+                LEFT JOIN Nivel_Educativo_de_ee AS ne ON ee.Cueanexo = ne.Cueanexo
                 WHERE ne.id_Nivel_Educativo IN (1, 2, 3, 4)  -- Solo niveles comunes
                 GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
                 ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC;
                 '''
                 
-ee_por_niv = dd.sql(consulta_ee_por_nivel).df()
+ee_por_niv = dd.sql(consultaSQL).df()
+
+
+# %%
+#Consulto la población separada en edades correspondientes a los niveles
+consultaSQL = '''
+            SELECT 
+                ID_DEPTO,
+                SUM(CASE WHEN Edad BETWEEN 3 AND 5 THEN Poblacion ELSE 0 END) AS Poblacion_Inicial,
+                SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
+                SUM(CASE WHEN Edad BETWEEN 13 AND 18 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria
+            FROM Reporte_Demografico
+            GROUP BY ID_DEPTO;
+'''             
+pob_por_niv = dd.sql(consultaSQL).df()
+
+#Uno las consultas
+consultaSQL = """
+                 SELECT 
+                 ee.Provincia,
+                 ee.Departamento,
+                 ee.Cant_Escuelas_Inicial AS Jardines,
+                 pob.Poblacion_Inicial AS "Población Jardin",
+                 ee.Cant_Escuelas_Primaria AS Primarias,
+                 pob.Poblacion_Primaria AS "Población Primaria",
+                 ee.Cant_Escuelas_Secundaria AS Secundarios,
+                 pob.Poblacion_Secundaria AS "Población Secundaria"
+                 FROM ee_por_niv AS ee
+                 INNER JOIN pob_por_niv AS pob
+                 ON ee.ID_DEPTO = pob.ID_DEPTO;
+
+                      """
+Nivel_Ed_por_Prov = dd.sql(consultaSQL).df()
+
+# %% Creo una imagen de la tabla
+
+data = Nivel_Ed_por_Prov.head().values.tolist()
+
+# Cre0 la fila de ("⋮") para cada columna
+ellipsis_row = ["⋮" for _ in Nivel_Ed_por_Prov.columns]
+data.append(ellipsis_row)
+
+fig, ax = plt.subplots(figsize=(6, 1))
+
+tabla = ax.table(cellText=data,
+                 colLabels=Nivel_Ed_por_Prov.columns,
+                 cellLoc='center',
+                 loc='center')
+
+# Ajusto los márgenes
+plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+# Cambio el fondo de los encabezados
+for (fila, col), celda in tabla.get_celld().items():
+    if fila == 0:
+         celda.set_facecolor('lightgray') 
+
+# Desactivo los ejes
+ax.axis('off')
+plt.savefig('Nivel_Ed_por_Prov.png', bbox_inches='tight', dpi=300)
+
+plt.show()
+
 # %% PRUEBA PARA EXPORTAR TABLA a LATEX
 # Exportar a LaTeX con formato personalizado
 latex_table = ee_por_niv.head().to_latex(index=False, escape=False, 
@@ -422,69 +483,7 @@ with open('tabla.tex', 'w') as f:
     f.write(latex_table)
 
 print("La tabla se ha exportado a 'tabla.tex'.")
-
-# %% PRUEBA PARA EXPORTAR TABLA como IMAGEN
-
-# Crear la figura y el eje
-fig, ax = plt.subplots(figsize=(10, 4))
-
-# Crear la tabla
-ax.table(cellText=ee_por_niv.head().values,
-         colLabels=ee_por_niv.columns,
-         cellLoc='center',
-         loc='center')
-
-# Desactivar los ejes y ajustar el diseño
-ax.axis('off')
-plt.savefig('tabla.png', bbox_inches='tight', dpi=300)  # Guardar como PNG
-plt.show()  # Mostrar la tabla
-
-print("La tabla se ha exportado como 'tabla.png'.")
-
 # %%
-
-# Consulto Poblacion por Nivel Educativos en cada departamento
-# ATENCION: puse edades arbitrarias hay que cambiarlo sí o sí
-
-consulta_pob_por_nivel = '''
-            SELECT 
-                ID_DEPTO,
-                SUM(CASE WHEN Edad BETWEEN 3 AND 5 THEN Poblacion ELSE 0 END) AS Poblacion_Inicial,
-                SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
-                SUM(CASE WHEN Edad BETWEEN 13 AND 17 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria,
-                SUM(CASE WHEN Edad >= 18 THEN Poblacion ELSE 0 END) AS Poblacion_Superior
-            FROM Poblacion
-            GROUP BY ID_DEPTO;
-'''             
-pob_por_niv = dd.sql(consulta_pob_por_nivel).df()
-
-# %% AYUDA ACA GONZA lol
-
-# Tengo que consultar para JOIN las dos consultas anteriores
-consultaSQL_educacion = """
-        # JOIN los DF ee_por_nivel_por_depto y pob_por_nivel_por_depto
-        resultado_final = pd.merge(ee_por_niv, pob_por_niv, on='ID_DEPTO', how='left')
-        
-        # renombramos y ordenamos las columnas para la consigna
-        resultado_final.rename(columns={
-            'Poblacion_Inicial': 'Población Inicial',
-            'Poblacion_Primaria': 'Población Primaria',
-            'Poblacion_Secundaria': 'Población Secundaria',
-            'Poblacion_Superior': 'Población Superior',
-        }, inplace=True)
-        
-        # Ver los resultados finales
-        print(resultado_final)
-        
-                      """
-resultado_educacion = conn.execute(consultaSQL_educacion).df()
-print("reporte de departamentos con escuelas y habitantes por edad:")
-print(resultado_educacion)
-# %%
-
-# %%
-
-
 
 #%%% EJERCICIO 2
 
