@@ -163,6 +163,7 @@ ee['Departamento'] = ee['Departamento'].replace({
     'juan f ibarra' : 'juan felipe ibarra',
 })
 
+
 #6 Cambio específico de algunas provincias para que coincidan con la entidad provincia
 ee['Provincia'] = ee['Provincia'].replace({
     'Ciudad de Buenos Aires': 'Ciudad Autónoma de Buenos Aires',
@@ -178,148 +179,202 @@ columnas_necesarias = [
 ee = ee[columnas_necesarias]
 
 # %% BASE de DATOS: Población
-# renombro las columnas para que tenga coherencia con los datos que representa
-pp = pp.rename(columns={"Unnamed: 1": "Edad", "Unnamed: 2": "Poblacion", "Unnamed: 3": "%", "Unnamed: 4": "Acumulado %"})
 
-# elimino aquellas filas que están completamente vacías
+#------------------------------------------------------------------------------
+# PASO 1: Limpieza y reestructuración de `pp`
+#------------------------------------------------------------------------------
+
+# 1) Renombrar columnas
+pp = pp.rename(
+    columns={
+        "Unnamed: 0": "descartar",
+        "Unnamed: 1": "Edad",
+        "Unnamed: 2": "Poblacion",
+        "Unnamed: 3": "%",
+        "Unnamed: 4": "Acumulado %"
+    }
+)
+
+# 2) Eliminar filas completamente vacías
 pp = pp.dropna(how="all")
 
-# elimino las filas donde en edad dice 'Total'
+# 3) Quitar filas que tengan 'Total' en 'Edad'
 pp = pp[pp['Edad'] != 'Total']
 
-# nuevas columnas para almacenar area y comuna
-pp["Área"], pp["Comuna"], area_actual, comuna_actual = None, None, None, None
+# 4) Crear columnas "Área" y "Comuna" para detectar "AREA #..."
+pp["Área"] = None
+pp["Comuna"] = None
 
-# itero las filas para detectar areas y comunas
+area_actual = None
+comuna_actual = None
+
+# 5) Iterar las filas para detectar "AREA #..." y asociarlas
 for i, row in pp.iterrows():
-    if isinstance(row["Edad"], str) and "AREA #" in row["Edad"]:
-        area_actual, comuna_actual, pp.at[i, "Edad"] = row["Edad"], row["Poblacion"], None
-    pp.at[i, "Área"], pp.at[i, "Comuna"] = area_actual, comuna_actual
+    valor_edad = row["Edad"]
+    if isinstance(valor_edad, str) and "AREA #" in valor_edad:
+        area_actual = valor_edad
+        comuna_actual = row["Poblacion"]
+        # Se anula la columna "Edad" en esa fila (era un encabezado)
+        pp.at[i, "Edad"] = None
+    
+    pp.at[i, "Área"]   = area_actual
+    pp.at[i, "Comuna"] = comuna_actual
 
-# %%
-pp['codigo_provincia'] = pp["Área"].str[7:9]  # Tomar los caracteres 1 y 2
-pp['codigo_depto'] = pp["Área"].str[9:]  # Tomar los últimos 3 caracteres
-pp = pp.drop(columns=["Área"])
+# 6) Extraer codigo_provincia y codigo_depto de la cadena “AREA #...”
+pp['codigo_provincia'] = pp['Área'].str[7:9]  # p.ej. "02"
+pp['codigo_depto']     = pp['Área'].str[9:]   # p.ej. "007"
 
-# elimino las filas que no pertenecen a ningun departamento (son parte del resumen)
+# (NO borramos "Área" para conservar la diferenciación de homónimos)
 
-indice_resumen = pp[pp["Edad"] == "RESUMEN"].index.min()
+# 7) Eliminar filas a partir de la palabra 'RESUMEN'
+indice_resumen = pp[pp["Edad"] == "RESUMEN"].index
+if not indice_resumen.empty:
+    primer_resumen = indice_resumen.min()
+    pp = pp.loc[:primer_resumen - 1]
 
-# Si existe 'Resumen', elimino todas las filas desde esa posición en adelante
-if not pd.isna(indice_resumen):
-    pp = pp.loc[:indice_resumen-1]
-
-# elimino filas que quedaron con NaN en %
+# 8) Eliminar filas que tengan NaN en la col '%'
 pp = pp.dropna(subset=["%"])
-# elimino las filas "encabezado" donde en Edad, no hay una edad sino un título
+
+# 9) Eliminar filas que todavía tengan 'Edad' en la col Edad (eran encabezados)
 pp = pp[pp['Edad'] != 'Edad']
 
-# elimimno "Unnamed:0" que es una columna que no aporta información
-pp = pp.drop(columns=['Unnamed: 0'])
-# verifico que no haya ningun nan en mi pp (chequeo la suma de cuántos nan hay)
-print(pp.isna().sum().sum())
+# 10) Eliminar la columna 'descartar' si existe
+pp = pp.drop(columns=['descartar'], errors='ignore')
 
-
-
-"""Ahora vamos a juntar la data de las 3 fuentes de datos.
-		Para eso vimos que en las demas fuentes (especificamente en la de centros culturales)
-		no hay información de las comunas. Solamente filtra por departamento.
-		Por lo tanto tomamos la decisión de que todas las comunas pasen a ser parte
-		del "Departamento" de la C.A.B.A."""  
-
-# definir una función para reemplazar valores según la palabra inicial
-pp["Comuna"] = pp["Comuna"].where(~pp["Comuna"].astype(str).str.startswith("Comuna"), "ciudad autonoma de buenos aires")
-pp = pp.rename(columns={"Comuna": "Departamento", "Poblacion": "Poblacion"})
-# %%
-pp_agrupado = (
-    pp[pp["codigo_provincia"] == "02"]
-    .groupby(["Edad"], as_index=False)
-    .agg({"Poblacion": "sum", "%": "sum", "Acumulado %": "sum"})
+# 11) Unificar comunas de CABA
+pp["Comuna"] = pp["Comuna"].astype(str)
+pp["Comuna"] = np.where(
+    pp["Comuna"].str.startswith("Comuna"), 
+    "ciudad autonoma de buenos aires", 
+    pp["Comuna"]
 )
-# Asignar valores fijos
-pp_agrupado["codigo_provincia"] = "02"
-pp_agrupado["codigo_depto"] = "000"
-pp_agrupado["Departamento"] = "ciudad autonoma de buenos aires"  # O podés dejarlo en blanco si no importa
-# filtrar el df orihinal quitando 02
-pp = pp[pp["codigo_provincia"] != "02"]
-# Concatenar el DataFrame original con el agrupado
-pp = pd.concat([pp_agrupado, pp], ignore_index=True)
+pp.rename(columns={"Comuna": "Departamento"}, inplace=True)
 
-# para este informe vamos a necesitar solamente la poblacion por grupo etario por depto
-# por lo tanto eliminamos los porcentajes, el acumulado, y el ara
-pp = pp.drop(columns=['%', 'Acumulado %', 'Área'])
-# reordeno las columnas
-pp = pp[["Departamento", "Edad", "Poblacion"]]
+# 12) Agrupar filas de CABA (provincia "02") en un solo Departamento
+mascara_caba = (pp["codigo_provincia"] == "02")
+pp_caba = (
+    pp[mascara_caba]
+    .groupby("Edad", as_index=False)
+    .agg({
+        "Poblacion": "sum",
+        "%": "sum",
+        "Acumulado %": "sum"
+    })
+)
 
-del area_actual, comuna_actual, i, row
+pp_caba["codigo_provincia"] = "02"
+pp_caba["codigo_depto"]     = "000"
+pp_caba["Departamento"]     = "ciudad autonoma de buenos aires"
+
+# ----- LÍNEA NUEVA ------
+# Asignamos un “Área” específico, en vez de None.
+pp_caba["Área"] = "AREA # 02000"
+# ------------------------
+
+# Resto igual
+pp_sin_caba = pp[~mascara_caba]
+pp = pd.concat([pp_caba, pp_sin_caba], ignore_index=True)
+
+# (Si quieres quitar tildes)
+pp["Departamento"] = pp["Departamento"].apply(quitar_tildes)
 
 
-#%% CREACIÓN DE LA ENTIDAD Departamentos y Provincias
-'------------------------------------Provincia---------------------------------------------------'
-
-consultaSQL = ''' SELECT DISTINCT ID_PROV, Provincia FROM CC ORDER BY ID_PROV '''
-
+#------------------------------------------------------------------------------
+# PASO 2: Crear (opcional) la tabla Provincias
+#------------------------------------------------------------------------------
+consultaSQL = "SELECT DISTINCT ID_PROV, Provincia FROM CC ORDER BY ID_PROV"
 Provincias = dd.sql(consultaSQL).df()
+Provincias['ID_PROV'] = Provincias['ID_PROV'].astype(int)
 
-ee.drop(columns=['ID_PROV'], errors='ignore', inplace=True)
-
-ee = ee.merge(Provincias, on='Provincia', how='left')
-
-'------------------------------------Departamento------------------------------------------------'
-consultaSQL = ''' SELECT DISTINCT Departamento, Provincia FROM ee ORDER BY Departamento '''
-
+#------------------------------------------------------------------------------
+# PASO 3: Construir la tabla Departamentos USANDO "Área" (sin excluir a CABA)
+#------------------------------------------------------------------------------
+consultaSQL = '''
+SELECT DISTINCT 
+    Área,
+    codigo_provincia,
+    codigo_depto,
+    Departamento
+FROM pp
+ORDER BY Departamento
+'''
 Departamentos = dd.sql(consultaSQL).df()
 
-#completocon los departamentos faltantes
+# 3.1) Agregar departamentos faltantes ya con la provincia asignada
 nuevos_departamentos = pd.DataFrame({
-    'Departamento': [
-        'pigue', 
-        'veronica', 
-        'coronel brandsen', 
-        'santa fe', 
-        'san miguel del monte',
-        'tolhuin'
+    "Área": [None, None, None, None, None],  # Si no tienen Área real, van como None
+    "codigo_provincia": [6, 6, 6, 82, 94],   # Códigos de provincia correctos
+    "codigo_depto": [np.nan, np.nan, np.nan, np.nan, np.nan],
+    "Departamento": [
+        "pigue", 
+        "veronica", 
+        "coronel brandsen", 
+        "santa fe", 
+        "antartida argentina"
     ]
 })
 
 Departamentos = pd.concat([Departamentos, nuevos_departamentos], ignore_index=True)
-#agreggo el ID_DEPTO
+
+
+# 3.2) Eliminar la columna 'ID_DEPTO' si existe, para reindexar
+Departamentos.drop(columns=['ID_DEPTO'], inplace=True, errors='ignore')
+
+# 3.3) Asignar un ID_DEPTO consecutivo
 Departamentos['ID_DEPTO'] = range(1, len(Departamentos) + 1)
 
-consultaSQL = '''SELECT DISTINCT ID_DEPTO, Departamento, Provincia FROM Departamentos ORDER BY ID_DEPTO'''
-Departamentos = dd.sql(consultaSQL).df()
+# 3.4) Convertir codigo_provincia a entero
+Departamentos['codigo_provincia'] = (
+    Departamentos['codigo_provincia'].fillna(-1).astype(int)
+)
 
-faltantes = {
-    "pigue": "Buenos Aires",
-    "veronica": "Buenos Aires",
-    "coronel brandsen": "Buenos Aires",
-    "santa fe": "Santa Fe",
-    "san miguel del monte": "Buenos Aires",
-    "tolhuin": "Tierra del Fuego, Antártida e Islas del Atlántico Sur"
-}
+# Ordenar si gustas
+Departamentos = Departamentos.sort_values("ID_DEPTO")
 
-# Actualizo la columna Provincia para que corresponda al Departamento
-Departamentos["Provincia"] = Departamentos.apply(lambda row: faltantes.get(row["Departamento"], row["Provincia"]), axis=1)
+#------------------------------------------------------------------------------
+# PASO 4: Para que CABA aparezca, fíjate que su fila ahora existe
+#         con Área = None, codigo_provincia=2, codigo_depto=000, etc.
+#         Asignar la misma clave en 'pp'
+#------------------------------------------------------------------------------
+# 1) Construir un diccionario { Área : ID_DEPTO }
+dict_area_to_id = dict(zip(Departamentos['Área'], Departamentos['ID_DEPTO']))
 
-#cambio Provincia por ID_PROV
-Departamentos = Departamentos.merge(Provincias, on= "Provincia", how='left')
-Departamentos.drop(columns=['Provincia'], inplace=True)
+# 2) En 'pp', mapear
+pp['ID_DEPTO'] = pp['Área'].map(dict_area_to_id)
+
+#------------------------------------------------------------------------------
+# PASO 5: Dejar la tabla "Departamentos" SÓLO con ID_DEPTO, Departamento e ID_PROV
+#------------------------------------------------------------------------------
+Departamentos['ID_PROV'] = Departamentos['codigo_provincia']
+Departamentos.drop(columns=['codigo_provincia','codigo_depto','Área'], inplace=True, errors='ignore')
+
+# Reordenar columnas
+Departamentos = Departamentos[['ID_DEPTO','Departamento','ID_PROV']]
+
+#------------------------------------------------------------------------------
+# PASO 6: Crear df_final agrupando (Edad, ID_DEPTO) en pp, si lo deseas
+#------------------------------------------------------------------------------
+df_final = (
+    pp.groupby(["Edad", "ID_DEPTO"], as_index=False)
+      .agg({"Poblacion": "sum"})
+)
+
+print("Departamentos (final):\n", Departamentos.head(20))
+print("df_final (poblacion):\n", df_final.head(20))
+
+
 #%%
+CC['ID_DEPTO'] = CC['ID_DEPTO'].astype(int)
+Departamentos['ID_DEPTO'] = Departamentos['ID_DEPTO'].astype(int) 
+
+CC['ID_PROV'] = CC['ID_PROV'].astype(int)
+Departamentos['ID_PROV'] = Departamentos['ID_PROV'].astype(int)                #convierto a int las columnas
 
 CC.drop(columns=['ID_DEPTO'], inplace=True)                                    #Elimino la antigua columna de ID_DEPTO
 CC = CC.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       #Asigno el ID_DEPTO correcto a cada fila
 # %%
+ee = ee.merge(Provincias, on= 'Provincia', how='left')
 ee = ee.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Agrego código de departamento
-
-# %%
-pp['Departamento'] = pp['Departamento'].apply(quitar_tildes)
-pp = pp.merge(Departamentos, on='Departamento', how='left')
-pp.drop(columns=['Departamento'], inplace=True)
-pp.drop(columns=['ID_PROV'], inplace=True)
-# junto todos los de CABA
-pp = pp.groupby(['Edad', 'ID_DEPTO'], as_index=False).agg(
-    {'Poblacion': 'sum'}
-)
 
 #%%
 # Armamos las bases  a partir del DER que planteamos
@@ -369,7 +424,7 @@ consultaSQL = """
               """
 Nivel_Educativo_de_ee = dd.sql(consultaSQL).df()            
 
-consultaSQL= '''SELECT * FROM pp'''
+consultaSQL= '''SELECT Edad, ID_DEPTO, Poblacion FROM df_final'''
 
 Reporte_Demografico = dd.sql(consultaSQL).df()
 
@@ -548,12 +603,14 @@ consultaSQL = """
                       WHERE ee.ID_DEPTO = d.ID_DEPTO
                       ) AS Cantidad_EE,
                   (
-                      SELECT SUM(Poblacion) 
-                      FROM (
-                          SELECT DISTINCT Edad, Poblacion
-                          FROM Reporte_Demografico rd 
-                          WHERE rd.ID_DEPTO = d.ID_DEPTO
-                          ) AS sub_rd
+                      SELECT SUM(Poblacion_por_Edad) 
+FROM (
+  SELECT rd.Edad, MAX(Poblacion) AS Poblacion_por_Edad
+  FROM Reporte_Demografico rd 
+  WHERE rd.ID_DEPTO = d.ID_DEPTO
+  GROUP BY rd.Edad
+) AS sub_rd
+
                       ) AS Poblacion_Total
               FROM 
                   Departamentos d
