@@ -197,6 +197,9 @@ for i, row in pp.iterrows():
     pp.at[i, "Área"], pp.at[i, "Comuna"] = area_actual, comuna_actual
 
 # %%
+pp['codigo_provincia'] = pp["Área"].str[7:9]  # Tomar los caracteres 1 y 2
+pp['codigo_depto'] = pp["Área"].str[9:]  # Tomar los últimos 3 caracteres
+pp = pp.drop(columns=["Área"])
 
 # elimino las filas que no pertenecen a ningun departamento (son parte del resumen)
 
