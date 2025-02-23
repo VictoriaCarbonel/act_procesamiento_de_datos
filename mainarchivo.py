@@ -593,16 +593,15 @@ consulta_dominios = """
 dominios_cc = dd.sql(consulta_dominios).df()
 
 
-#%%
-#%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
-
+#%% VIZUALIZACIÓN DE DATOS
 #%%% EJERCICIO 1
 
 #cant de CC por provincia
 consultaSQL = """
               SELECT p.Provincia, COUNT(cc.ID_CC) AS Cantidad_CC
               FROM Provincias AS p
-              LEFT JOIN Centros_C AS cc ON p.ID_PROV = cc.ID_PROV
+              LEFT JOIN Departamentos AS d ON p.ID_PROV = d.ID_PROV
+              LEFT JOIN Centros_C AS cc ON d.ID_DEPTO = cc.ID_DEPTO
               GROUP BY p.Provincia
               ORDER BY Cantidad_CC DESC
               """
@@ -621,6 +620,7 @@ plt.title('Cantidad de Centros Culturales por Provincia')
 plt.xlabel('Cantidad de Centros Culturales')
 plt.ylabel('Provincia')
 plt.show()
+
 
 #%%% EJERCICIO 2
 # Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
@@ -704,16 +704,16 @@ plt.show()
 # 1. Población por provincia
 pop_depto = Reporte_Demografico.groupby("ID_DEPTO")["Poblacion"].sum().reset_index()                            # Sumo la población por departamento 
 pop_depto = pop_depto.merge(Departamentos[["ID_DEPTO", "ID_PROV"]], on="ID_DEPTO", how="left")
-pop_prov = pop_depto.groupby("ID_PROV")["Poblacion"].sum().reset_index()                                        #ahora la sumo por provincia
+pop_prov = pop_depto.groupby("ID_PROV")["Poblacion"].sum().reset_index()                                        # ahora la sumo por provincia
 pop_prov = pop_prov.merge(Provincias, on="ID_PROV", how="left")                                                 # Agrego el nombre de la provincia
 
 # 2. Establecimientos Educativos por provincia 
-EE_prov = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].sum().reset_index()                             #uso el conteo hecho anteriormente para saber cuantos EE hay por provincia
+EE_prov = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].sum().reset_index()                             # uso el conteo hecho anteriormente para saber cuantos EE hay por provincia
 
 # 3. Centros Culturales por provincia
-CC_prov = Centros_C.groupby("ID_PROV")["ID_CC"].count().reset_index().rename(columns={"ID_CC": "Cantidad_CC"})  #cuento los CC por provincia
+CC_depto = Centros_C.merge(Departamentos[["ID_DEPTO", "ID_PROV"]], on="ID_DEPTO", how="left")
+CC_prov = CC_depto.groupby("ID_PROV")["ID_CC"].count().reset_index().rename(columns={"ID_CC": "Cantidad_CC"})  # cuento los CC por provincia
 CC_prov = CC_prov.merge(Provincias, on="ID_PROV", how="left")                                                   # Agrego el nombre de la provincia
-
 
 # 4. Calcular indicadores por mil habitantes a nivel provincial
 df_EE = EE_prov.merge(pop_prov, on="Provincia", how="left")                                                     # Uno la información de EE y población (usando el nombre de provincia)
@@ -736,7 +736,7 @@ df_long["Tipo"] = df_long["Tipo"].map({
     "CC_por_1000": "Centros Culturales"
 })
 
-#cambio los nombres a tierra del fuego y caba para que el gráfico sea más legible
+# cambio los nombres a tierra del fuego y caba para que el gráfico sea más legible
 df_long['Provincia'] = df_long['Provincia'].replace({
     'Tierra del Fuego, Antártida e Islas del Atlántico Sur':'Tierra del Fuego',
     'Ciudad Autónoma de Buenos Aires':'CABA'
