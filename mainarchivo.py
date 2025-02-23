@@ -239,7 +239,7 @@ del area_actual, comuna_actual, i, row
 #%% CREACIÓN DE LA ENTIDAD Departamentos y Provincias
 '------------------------------------Provincia---------------------------------------------------'
 
-consultaSQL = ''' SELECT DISTINCT Provincia, ID_PROV FROM CC ORDER BY ID_PROV '''
+consultaSQL = ''' SELECT DISTINCT ID_PROV, Provincia FROM CC ORDER BY ID_PROV '''
 
 Provincias = dd.sql(consultaSQL).df()
 
@@ -318,8 +318,7 @@ Establecimientos_E = dd.sql(consultaSQL).df()
 consultaSQL = ''' SELECT DISTINCT ID_CC,
                           CC.Nombre, 
                           CC.Capacidad,
-                          CC.ID_DEPTO,
-                          CC.ID_PROV
+                          CC.ID_DEPTO
                   FROM CC
                   ORDER BY Nombre; '''
                   
@@ -592,6 +591,7 @@ consulta_dominios = """
 """
 
 dominios_cc = dd.sql(consulta_dominios).df()
+
 
 #%%
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
