@@ -230,6 +230,21 @@ print(pp.isna().sum().sum())
 # definir una función para reemplazar valores según la palabra inicial
 pp["Comuna"] = pp["Comuna"].where(~pp["Comuna"].astype(str).str.startswith("Comuna"), "ciudad autonoma de buenos aires")
 pp = pp.rename(columns={"Comuna": "Departamento", "Poblacion": "Poblacion"})
+# %%
+pp_agrupado = (
+    pp[pp["codigo_provincia"] == "02"]
+    .groupby(["Edad"], as_index=False)
+    .agg({"Poblacion": "sum", "%": "sum", "Acumulado %": "sum"})
+)
+# Asignar valores fijos
+pp_agrupado["codigo_provincia"] = "02"
+pp_agrupado["codigo_depto"] = "000"
+pp_agrupado["Departamento"] = "ciudad autonoma de buenos aires"  # O podés dejarlo en blanco si no importa
+# filtrar el df orihinal quitando 02
+pp = pp[pp["codigo_provincia"] != "02"]
+# Concatenar el DataFrame original con el agrupado
+pp = pd.concat([pp_agrupado, pp], ignore_index=True)
+
 # para este informe vamos a necesitar solamente la poblacion por grupo etario por depto
 # por lo tanto eliminamos los porcentajes, el acumulado, y el ara
 pp = pp.drop(columns=['%', 'Acumulado %', 'Área'])
