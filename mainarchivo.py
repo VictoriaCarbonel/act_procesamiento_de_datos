@@ -370,7 +370,7 @@ Mails.to_csv('Mails.csv', index=False)
 Reporte_Demografico.to_csv('Reporte_Demografico.csv', index=False)
 
 
-        #%% EJERCICIOS DE CONSULTAS SQL
+#%% EJERCICIOS DE CONSULTAS SQL
 #%%% EJERCICIO 1
 
 # Consulto Establecimientos Educativos por Nivel en cada departamento
@@ -388,7 +388,7 @@ consultaSQL = '''
                 LEFT JOIN Nivel_Educativo_de_ee AS ne ON ee.Cueanexo = ne.Cueanexo
                 WHERE ne.id_Nivel_Educativo IN (1, 2, 3, 4)  -- Solo niveles comunes
                 GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
-                ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC;
+                ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC
                 '''
                 
 ee_por_niv = dd.sql(consultaSQL).df()
@@ -401,7 +401,7 @@ consultaSQL = '''
                 SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
                 SUM(CASE WHEN Edad BETWEEN 13 AND 18 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria
             FROM Reporte_Demografico
-            GROUP BY ID_DEPTO;
+            GROUP BY ID_DEPTO
 '''             
 pob_por_niv = dd.sql(consultaSQL).df()
 
@@ -418,12 +418,12 @@ consultaSQL = """
                  pob.Poblacion_Secundaria AS "Población Secundaria"
                  FROM ee_por_niv AS ee
                  INNER JOIN pob_por_niv AS pob
-                 ON ee.ID_DEPTO = pob.ID_DEPTO;
+                 ON ee.ID_DEPTO = pob.ID_DEPTO
 
                       """
 Nivel_Ed_por_Prov = dd.sql(consultaSQL).df()
 
-
+#%%
 # SELECCION PRIMERAS Y ULTIMAS 3 FILAS
 # muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
 tabla_1 = pd.concat([Nivel_Ed_por_Prov.head(3), pd.DataFrame([['...'] * Nivel_Ed_por_Prov.shape[1]], columns=Nivel_Ed_por_Prov.columns), Nivel_Ed_por_Prov.tail(3)])
@@ -447,12 +447,7 @@ print("Tabla exportada a 'tabla_1.tex' correctamente.")
 #%%% EJERCICIO 2
 
 #Decision: los cc con cap s/d no los contamos como mayor a 100
-    '''
-    Para cada departamento informar la provincia y la cantidad de CC con 
-    capacidad mayor a 100 personas. El orden del reporte debe ser alfabético 
-    por provincia y dentro de las provincias, descendente por cantidad de CC de 
-    dicha capacidad.
-    '''
+
 consultaSQL = """
                 SELECT 
                     d.ID_DEPTO,
@@ -472,11 +467,19 @@ consultaSQL = """
                     d.ID_DEPTO, d.Departamento, p.Provincia
                 ORDER BY 
                     p.Provincia ASC,
-                    Cantidad_CC DESC;
+                    Cantidad_CC DESC
               """
 depto_CC_100 = dd.sql(consultaSQL).df()
-print("Departamentos con sus provincias, y con la cantidad de CCC con capacidad mayor a 100 persona:")
-print(consultaSQL)
+
+consultaSQL= ''' SELECT 
+                 Departamento, 
+                 Provincia,
+                 Cantidad_CC AS "Cantidad de CC con cap>100"
+                 FROM 
+                 depto_CC_100
+                 '''
+
+depto_CC_100 = dd.sql(consultaSQL).df()
 # %%
 # muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
 tabla_2 = pd.concat([depto_CC_100.head(3), pd.DataFrame([['...'] * depto_CC_100.shape[1]], columns=depto_CC_100.columns), depto_CC_100.tail(3)])
@@ -497,38 +500,47 @@ print("Tabla exportada a 'tabla2.tex' correctamente.")
 
 #%%% EJERCICIO 3
 
+'''Para cada departamento, indicar provincia, cantidad de CC, cantidad de EE
+(de modalidad común) y población total. Ordenar por cantidad EE
+descendente, cantidad CC descendente, nombre de provincia ascendente y
+nombre de departamento ascendente. No omitir casos sin CC o EE.'''
+
 # Cantidad de CC, EE y población total por departamento
 consultaSQL = """
               SELECT 
-                d.ID_DEPTO,
-                d.Departamento,
-                p.Provincia,
-                COUNT(DISTINCT cc.ID_CC) AS Cantidad_CC,
-                COUNT(DISTINCT ee.Cueanexo) AS Cantidad_EE,
-                SUM(rd.Poblacion) AS Poblacion_Total 
-            FROM 
-                Departamentos d
-            JOIN 
-                Provincias p ON d.ID_PROV = p.ID_PROV
-            LEFT JOIN 
-                Centros_C cc ON d.ID_DEPTO = cc.ID_DEPTO
-            LEFT JOIN 
-                Establecimientos_E ee ON d.ID_DEPTO = ee.ID_DEPTO
-            LEFT JOIN 
-                Reporte_Demografico rd ON d.ID_DEPTO = rd.ID_DEPTO
-            GROUP BY 
-                d.ID_DEPTO, d.Departamento, p.Provincia
-            ORDER BY 
-                Cantidad_EE DESC,
-                Cantidad_CC DESC,
-                p.Provincia ASC,
-                d.Departamento ASC;
+                  d.ID_DEPTO,
+                  d.Departamento,
+                  p.Provincia,
+                  (
+                      SELECT COUNT(*) 
+                      FROM Centros_C cc 
+                      WHERE cc.ID_DEPTO = d.ID_DEPTO
+                      ) AS Cantidad_CC,
+                  (
+                      SELECT COUNT(*) 
+                      FROM Establecimientos_E ee 
+                      WHERE ee.ID_DEPTO = d.ID_DEPTO
+                      ) AS Cantidad_EE,
+                  (
+                      SELECT SUM(Poblacion) 
+                      FROM (
+                          SELECT DISTINCT Edad, Poblacion
+                          FROM Reporte_Demografico rd 
+                          WHERE rd.ID_DEPTO = d.ID_DEPTO
+                          ) AS sub_rd
+                      ) AS Poblacion_Total
+              FROM 
+                  Departamentos d
+              JOIN 
+                  Provincias p ON d.ID_PROV = p.ID_PROV
+              ORDER BY 
+                  Cantidad_EE DESC,
+                  Cantidad_CC DESC,
+                  p.Provincia ASC,
+                  d.Departamento ASC;
+
               """
-consultaSQL = dd.sql(consultaSQL).df()
-print("Reporte de departamentos con cantidad de CC, EE y población total:")
-print(consultaSQL)
-
-
+Cant_CC_EE_Pob = dd.sql(consultaSQL).df()
 
 #%%% EJERCICIO 4
 
@@ -538,27 +550,39 @@ print(consultaSQL)
 ### ser considerado para esta tabla
 
 consulta_dominios = """
-    SELECT DISTINCT ON (cc.ID_DEPTO)  
-        cc.ID_PROV,
-        cc.ID_DEPTO,
-        LOWER(SPLIT_PART(SPLIT_PART(m.mail, '@', 2), '.', 1)) AS dominio,
-        COUNT(*) AS cantidad
-    FROM 
-        Mails m
-    JOIN 
-        Centros_C cc ON m.ID_CC = cc.ID_CC
-    WHERE 
-        m.mail IS NOT NULL AND m.mail <> ''  -- Filtra valores nulos o vacíos
-    GROUP BY 
-        cc.ID_PROV, cc.ID_DEPTO, dominio
-    ORDER BY 
-        cc.ID_DEPTO, cantidad DESC;"""
+       WITH conteo_dominios AS (
+           SELECT 
+               d.ID_DEPTO,
+               p.Provincia,
+               d.Departamento,
+               LOWER(SPLIT_PART(SPLIT_PART(m.Mail, '@', 2), '.', 1)) AS dominio,  ---indico cual es el dominio
+               COUNT(DISTINCT cc.ID_CC) AS cnt
+           FROM Departamentos d
+           JOIN Provincias p ON d.ID_PROV = p.ID_PROV
+           JOIN Centros_C cc ON d.ID_DEPTO = cc.ID_DEPTO
+           JOIN Mails m ON cc.ID_CC = m.ID_CC
+           WHERE m.Mail IS NOT NULL
+           AND m.Mail <> ''                                              ---se excluyen registros que tengan cadenas vacías
+           GROUP BY d.ID_DEPTO, p.Provincia, d.Departamento, dominio
+           ),
+       max_counts AS (
+           SELECT 
+               ID_DEPTO,
+               MAX(cnt) AS max_cnt
+           FROM conteo_dominios
+           GROUP BY ID_DEPTO
+           )
+       SELECT 
+           dc.Provincia,
+           dc.Departamento,
+           dc.dominio AS Dominio_mas_frecuente
+       FROM conteo_dominios dc
+       JOIN max_counts mc
+       ON dc.ID_DEPTO = mc.ID_DEPTO AND dc.cnt = mc.max_cnt
+       ORDER BY dc.Provincia ASC, dc.Departamento ASC
+"""
 
 dominios_cc = dd.sql(consulta_dominios).df()
-print("Dominios de mail usados por centros culturales por departamento:")
-print(dominios_cc)
-
-
 
 #%%
 #%% EJERCICIOS DE VISUALIZACIÓN DE DATOS
