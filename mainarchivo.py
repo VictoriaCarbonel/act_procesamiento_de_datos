@@ -196,6 +196,15 @@ for i, row in pp.iterrows():
         area_actual, comuna_actual, pp.at[i, "Edad"] = row["Edad"], row["Poblacion"], None
     pp.at[i, "Área"], pp.at[i, "Comuna"] = area_actual, comuna_actual
 
+# %%
+
+# elimino las filas que no pertenecen a ningun departamento (son parte del resumen)
+
+indice_resumen = pp[pp["Edad"] == "RESUMEN"].index.min()
+
+# Si existe 'Resumen', elimino todas las filas desde esa posición en adelante
+if not pd.isna(indice_resumen):
+    pp = pp.loc[:indice_resumen-1]
 
 # elimino filas que quedaron con NaN en %
 pp = pp.dropna(subset=["%"])
