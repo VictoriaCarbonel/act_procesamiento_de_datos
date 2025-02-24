@@ -577,7 +577,6 @@ print("Tabla exportada a 'tabla_2.tex' correctamente.")
 descendente, cantidad CC descendente, nombre de provincia ascendente y
 nombre de departamento ascendente. No omitir casos sin CC o EE.'''
 
-# Cantidad de CC, EE y población total por departamento
 consultaSQL = """
               SELECT 
                   d.ID_DEPTO,
@@ -595,13 +594,12 @@ consultaSQL = """
                       ) AS Cantidad_EE,
                   (
                       SELECT SUM(Poblacion_por_Edad) 
-FROM (
-  SELECT rd.Edad, MAX(Poblacion) AS Poblacion_por_Edad
-  FROM Reporte_Demografico rd 
-  WHERE rd.ID_DEPTO = d.ID_DEPTO
-  GROUP BY rd.Edad
-) AS sub_rd
-
+                      FROM (
+                          SELECT rd.Edad, MAX(Poblacion) AS Poblacion_por_Edad
+                          FROM Reporte_Demografico rd 
+                          WHERE rd.ID_DEPTO = d.ID_DEPTO
+                          GROUP BY rd.Edad
+                      ) AS sub_rd
                       ) AS Poblacion_Total
               FROM 
                   Departamentos d
@@ -746,8 +744,7 @@ Cantidad_de_EE = dd.sql(consultaSQL).df()                                       
 
 Cantidad_de_EE = Cantidad_de_EE.merge(Departamentos, on='ID_DEPTO', how='left')            #agrego ID_PROV para poder agruparlos en provincias
 Cantidad_de_EE.drop(columns=['Departamento'], inplace=True)                                #elimino el nombre del departamento
-Cantidad_de_EE = Cantidad_de_EE.merge(Provincias, on='ID_PROV', how='left')
-                #agrego el nombre de las provincias
+Cantidad_de_EE = Cantidad_de_EE.merge(Provincias, on='ID_PROV', how='left')               #agrego el nombre de las provincias
 # Cambio el nombre de Tierra del Fuego, Antártida e Islas del Atlántico Sur para que los graficos sea más legible 
 Cantidad_de_EE['Provincia'] = Cantidad_de_EE['Provincia'].replace(
     'Tierra del Fuego, Antártida e Islas del Atlántico Sur', 
@@ -778,7 +775,7 @@ pop_prov = pop_depto.groupby("ID_PROV")["Poblacion"].sum().reset_index()        
 pop_prov = pop_prov.merge(Provincias, on="ID_PROV", how="left")                                                 # Agrego el nombre de la provincia
 
 # 2. Establecimientos Educativos por provincia 
-EE_prov = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].sum().reset_index()                             # uso el conteo hecho anteriormente para saber cuantos EE hay por provincia
+EE_prov = Cantidad_de_EE
 
 # 3. Centros Culturales por provincia
 CC_depto = Centros_C.merge(Departamentos[["ID_DEPTO", "ID_PROV"]], on="ID_DEPTO", how="left")
