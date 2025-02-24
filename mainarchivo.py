@@ -372,28 +372,30 @@ CC = CC.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       #
 ee = ee.merge(Provincias, on= 'Provincia', how='left')
 ee = ee.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Agregar código de departamento
 
-#%%
-# Armamos las bases  a partir del DER que planteamos
-# mediante funciones de Pandas y consultas SQL
+#%% 
+# Armamos las bases a partir del DER que planteamos mediante funciones de Pandas y consultas SQL
 
-consultaSQL= """ 
+# Consulta a la tabla de establecimientos educativos
+consultaSQL = """ 
                 SELECT DISTINCT Cueanexo,
                 Nombre, 
                 ID_DEPTO
                 FROM ee;
-                            """
+               """
 Establecimientos_E = dd.sql(consultaSQL).df()
 
-consultaSQL = ''' SELECT DISTINCT ID_CC,
+# Consulta a la tabla de centros culturales
+consultaSQL = ''' 
+                  SELECT DISTINCT ID_CC,
                           CC.Nombre, 
                           CC.Capacidad,
                           CC.ID_DEPTO
                   FROM CC
-                  ORDER BY Nombre; '''
-                  
+                  ORDER BY Nombre; 
+                '''
 Centros_C = dd.sql(consultaSQL).df()
 
-           
+# Consulta para crear la tabla de niveles educativos
 consultaSQL = """
                   SELECT 1 AS id_Nivel_Educativo, 'Nivel inicial - Jardín Maternal' AS Nombre UNION ALL
                   SELECT 2, 'Nivel inicial - Jardín de Infantes' UNION ALL
@@ -402,41 +404,43 @@ consultaSQL = """
                   SELECT 5, 'Secundario - INET' UNION ALL
                   SELECT 6, 'SNU' UNION ALL
                   SELECT 7, 'SNU - INET';
-           """
+               """
 Nivel_Educativo = dd.sql(consultaSQL).df()
 
+# Consulta para unir establecimientos educativos con niveles educativos
 consultaSQL = """
                     SELECT DISTINCT cueanexo, id_Nivel_Educativo
                     FROM ee AS e
                     INNER JOIN Nivel_Educativo AS m 
                     ON (e."Nivel inicial - Jardín Maternal" = '1' AND m.Nombre = 'Nivel inicial - Jardín Maternal') OR
-                    (e."Nivel inicial - Jardín de Infantes" = '1' AND m.Nombre = 'Nivel inicial - Jardín de Infantes') OR
-                    (e."Primario" = '1' AND m.Nombre = 'Primario') OR
-                    (e."Secundario" = '1' AND m.Nombre = 'Secundario') OR
-                   (e."Secundario - INET" = '1' AND m.Nombre = 'Secundario - INET') OR
-                   (e."SNU" = '1' AND m.Nombre = 'SNU') OR
-                   (e."SNU - INET" = '1' AND m.Nombre = 'SNU - INET')
+                       (e."Nivel inicial - Jardín de Infantes" = '1' AND m.Nombre = 'Nivel inicial - Jardín de Infantes') OR
+                       (e."Primario" = '1' AND m.Nombre = 'Primario') OR
+                       (e."Secundario" = '1' AND m.Nombre = 'Secundario') OR
+                       (e."Secundario - INET" = '1' AND m.Nombre = 'Secundario - INET') OR
+                       (e."SNU" = '1' AND m.Nombre = 'SNU') OR
+                       (e."SNU - INET" = '1' AND m.Nombre = 'SNU - INET')
                    ORDER BY cueanexo;
               """
-Nivel_Educativo_de_ee = dd.sql(consultaSQL).df()            
+Nivel_Educativo_de_ee = dd.sql(consultaSQL).df()
 
-consultaSQL= '''SELECT Edad, ID_DEPTO, Poblacion FROM df_final'''
-
+# Consulta para el reporte demográfico
+consultaSQL = ''' 
+                  SELECT Edad, ID_DEPTO, Poblacion FROM df_final
+               '''
 Reporte_Demografico = dd.sql(consultaSQL).df()
 
-'-----------------------------------------Creo la entidad débil Mails_CC-----------------------------'
+#----------------------------------------- Creo la entidad débil Mails_CC -----------------------------
 Mails = CC.copy()
-Mails["Mail"] = Mails["Mail"].fillna("").astype(str)                                                      # Me aseguro que la columna de mails es string y saco nans
-email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"                                         # Formato generico"" para extraer mails completos
-Mails["mails_extraidos"] = Mails["Mail"].apply(lambda x: re.findall(email_pattern, x))                    # Extraigo correos, los pongo en una columna en forma de lista
-Mails = Mails.explode("mails_extraidos", ignore_index=True)                                               # Exploto las listas en filas separadas
-Mails = Mails.drop(columns=["Mail"]).rename(columns={"mails_extraidos": "Mail"})                           # Renombro la columna
-Mails = Mails.drop(columns=[ 'ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento', 'Nombre', 'Capacidad' ]) # Elimino los atributos que no forman parte de la entidad
+Mails["Mail"] = Mails["Mail"].fillna("").astype(str)  # Me aseguro que la columna de mails es string y saco nans
+email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"  # Formato generico para extraer mails completos
+Mails["mails_extraidos"] = Mails["Mail"].apply(lambda x: re.findall(email_pattern, x))  # Extraigo correos
+Mails = Mails.explode("mails_extraidos", ignore_index=True)  # Exploto las listas en filas separadas
+Mails = Mails.drop(columns=["Mail"]).rename(columns={"mails_extraidos": "Mail"})  # Renombro la columna
+Mails = Mails.drop(columns=['ID_PROV', 'ID_DEPTO', 'Provincia', 'Departamento', 'Nombre', 'Capacidad'])  # Elimino atributos innecesarios
 
 Departamentos['Departamento'] = Departamentos['Departamento'].str.title()
 
-#%% Exporto los DF
-
+#%% Exporto los DataFrames
 Centros_C.to_csv('Centros_Cs.csv', index=False)
 Establecimientos_E.to_csv('Establecimientos_E.csv', index=False)
 Nivel_Educativo.to_csv('Nivel_Educativo.csv', index=False)
@@ -445,7 +449,6 @@ Departamentos.to_csv('Departamentos.csv', index=False)
 Provincias.to_csv('Provincias.csv', index=False)
 Mails.to_csv('Mails.csv', index=False)
 Reporte_Demografico.to_csv('Reporte_Demografico.csv', index=False)
-
 
 #%% EJERCICIOS DE CONSULTAS SQL
 #%%% EJERCICIO 1
@@ -486,24 +489,23 @@ consultaSQL = """
                 JOIN Escuelas AS e ON d.ID_DEPTO = e.ID_DEPTO
                 JOIN Poblacion AS po ON d.ID_DEPTO = po.ID_DEPTO
                 ORDER BY p.Provincia ASC, e.Cant_Escuelas_Primaria DESC
-                      """
+              """
 Nivel_Ed_por_Prov = dd.sql(consultaSQL).df()
 
 # %%
-
 Nivel_Ed_por_Prov.to_csv('Nivel_Ed_por_Prov.csv', index=False)
 
-
-#%%
-# SELECCION PRIMERAS Y ULTIMAS 3 FILAS
-# muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
+#%% 
+# SELECCIÓN DE PRIMERAS Y ÚLTIMAS 3 FILAS
+# Muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
 tabla_1 = pd.concat([Nivel_Ed_por_Prov.head(3), pd.DataFrame([['...'] * Nivel_Ed_por_Prov.shape[1]], columns=Nivel_Ed_por_Prov.columns), Nivel_Ed_por_Prov.tail(3)])
-
 
 ###### EXPORTAR A LATEX #########
 # Exportar como tabla de LaTeX con un formato más elegante
 latex_table = tabla_1.to_latex(index=False, escape=False, column_format='lcccc', 
-                          header=['Provincia', 'Departamento', 'Cantidad EE Inicial', 'Poblacion edad Inicial', 'Cantidad EE Primaria', 'Poblacion edad Primaria', 'Cantidad EE Secundaria', 'Poblacion EE Secundaria'], 
+                          header=['Provincia', 'Departamento', 'Cantidad EE Inicial', 'Poblacion edad Inicial', 
+                                  'Cantidad EE Primaria', 'Poblacion edad Primaria', 'Cantidad EE Secundaria', 
+                                  'Poblacion EE Secundaria'], 
                           caption='Informe por Departamento: Provincia, Cantidad de Escuelas por Nivel Educativo y Habitantes por Edad', 
                           label='tab:informe', 
                           float_format='%.2f')
@@ -512,13 +514,9 @@ with open('tabla_1.tex', 'w') as f:
     f.write(latex_table)
 print("Tabla exportada a 'tabla_1.tex' correctamente.")
 
-
-
-
 #%%% EJERCICIO 2
 
-#Decision: los cc con cap s/d no los contamos como mayor a 100
-
+# Decisión: los CC con capacidad 's/d' no los contamos como mayor a 100
 consultaSQL = """
                 SELECT 
                     d.ID_DEPTO,
@@ -542,31 +540,34 @@ consultaSQL = """
               """
 depto_CC_100 = dd.sql(consultaSQL).df()
 
-consultaSQL= ''' SELECT 
+# Consulta para mostrar los resultados
+consultaSQL = ''' 
+                 SELECT 
                  Departamento, 
                  Provincia,
                  Cantidad_CC AS "Cantidad de CC con cap>100"
                  FROM 
                  depto_CC_100
-                 '''
-
+               '''
 depto_CC_100 = dd.sql(consultaSQL).df()
+depto_CC_100.to_csv('depto_CC_100.csv', index=False)
+
+
 # %%
-# muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
+# Muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
 tabla_2 = pd.concat([depto_CC_100.head(3), pd.DataFrame([['...'] * depto_CC_100.shape[1]], columns=depto_CC_100.columns), depto_CC_100.tail(3)])
 
-######## EXPORTAR A LATEX ###########
-
+###### EXPORTAR A LATEX #########
 # Exportar como tabla de LaTeX con un formato más elegante
-latex_table = tabla_2.to_latex(index=False, escape=False, column_format='lcccccccc',  # Asegúrate de que 'cccccccc' coincida con el número de columnas
-                          caption='Informe por Departamento: Provincia, Cantidad de Centros Culturales cuya capacidad es mayor a 100 personas.', 
-                          label='tab:informe', 
+latex_table = tabla_2.to_latex(index=False, escape=False, column_format='lccc', 
+                          header=['Departamento', 'Provincia', 'Cantidad de CC con cap>100'], 
+                          caption='Informe de Centros Culturales por Departamento', 
+                          label='tab:centros_culturales', 
                           float_format='%.2f')
 # Guardar en un archivo
 with open('tabla_2.tex', 'w') as f:
     f.write(latex_table)
-print("Tabla exportada a 'tabla2.tex' correctamente.")
-
+print("Tabla exportada a 'tabla_2.tex' correctamente.")
 
 
 #%%% EJERCICIO 3
@@ -614,6 +615,8 @@ FROM (
 
               """
 Cant_CC_EE_Pob = dd.sql(consultaSQL).df()
+Cant_CC_EE_Pob.to_csv('Cant_CC_EE_Pob.csv', index=False)
+
 
 #%%% EJERCICIO 4
 
@@ -656,6 +659,8 @@ consulta_dominios = """
 """
 
 dominios_cc = dd.sql(consulta_dominios).df()
+dominios_cc.to_csv('dominios_cc.csv', index=False)
+
 
 
 #%% VIZUALIZACIÓN DE DATOS
