@@ -455,58 +455,52 @@ Reporte_Demografico.to_csv('Reporte_Demografico.csv', index=False)
 #%%% EJERCICIO 1
 
 # Consulto Establecimientos Educativos por Nivel en cada departamento
-consultaSQL = '''
-            SELECT 
-                d.ID_DEPTO,
-                d.Departamento,
-                p.Provincia,
-                SUM(CASE WHEN ne.id_Nivel_Educativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
-                SUM(CASE WHEN ne.id_Nivel_Educativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
-                SUM(CASE WHEN ne.id_Nivel_Educativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria
+consultaSQL = """
+                WITH Escuelas AS (
+                    SELECT 
+                        d.ID_DEPTO,
+                        SUM(CASE WHEN ne.id_Nivel_Educativo = 1 THEN 1 ELSE 0 END) AS Cant_Escuelas_Inicial,
+                        SUM(CASE WHEN ne.id_Nivel_Educativo = 2 THEN 1 ELSE 0 END) AS Cant_Escuelas_Primaria,
+                        SUM(CASE WHEN ne.id_Nivel_Educativo = 3 THEN 1 ELSE 0 END) AS Cant_Escuelas_Secundaria
+                    FROM Departamentos AS d
+                    LEFT JOIN Establecimientos_E AS ee ON d.ID_DEPTO = ee.ID_DEPTO
+                    LEFT JOIN Nivel_Educativo_de_ee AS ne ON ee.Cueanexo = ne.Cueanexo
+                    GROUP BY d.ID_DEPTO
+                ),
+                Poblacion AS (
+                    SELECT 
+                        ID_DEPTO,
+                        SUM(CASE WHEN Edad BETWEEN 3 AND 5 THEN Poblacion ELSE 0 END) AS Poblacion_Inicial,
+                        SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
+                        SUM(CASE WHEN Edad BETWEEN 13 AND 18 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria
+                    FROM Reporte_Demografico
+                    GROUP BY ID_DEPTO
+                )
+                SELECT 
+                    p.Provincia,
+                    d.Departamento,
+                    e.Cant_Escuelas_Inicial AS Jardines,
+                    po.Poblacion_Inicial AS "Población Jardin",
+                    e.Cant_Escuelas_Primaria AS Primarias,
+                    po.Poblacion_Primaria AS "Población Primaria",
+                    e.Cant_Escuelas_Secundaria AS Secundarios,
+                    po.Poblacion_Secundaria AS "Población Secundaria"
                 FROM Departamentos AS d
                 JOIN Provincias AS p ON d.ID_PROV = p.ID_PROV
-                LEFT JOIN Establecimientos_E AS ee ON d.ID_DEPTO = ee.ID_DEPTO
-                LEFT JOIN Nivel_Educativo_de_ee AS ne ON ee.Cueanexo = ne.Cueanexo
-                WHERE ne.id_Nivel_Educativo IN (1, 2, 3, 4)  -- Solo niveles comunes
-                GROUP BY d.ID_DEPTO, d.Departamento, p.Provincia
-                ORDER BY p.Provincia, Cant_Escuelas_Primaria DESC
-                '''
-                
-ee_por_niv = dd.sql(consultaSQL).df()
-
-#Consulto la población separada en edades correspondientes a los niveles
-consultaSQL = '''
-            SELECT 
-                ID_DEPTO,
-                SUM(CASE WHEN Edad BETWEEN 3 AND 5 THEN Poblacion ELSE 0 END) AS Poblacion_Inicial,
-                SUM(CASE WHEN Edad BETWEEN 6 AND 12 THEN Poblacion ELSE 0 END) AS Poblacion_Primaria,
-                SUM(CASE WHEN Edad BETWEEN 13 AND 18 THEN Poblacion ELSE 0 END) AS Poblacion_Secundaria
-            FROM Reporte_Demografico
-            GROUP BY ID_DEPTO
-'''             
-pob_por_niv = dd.sql(consultaSQL).df()
-
-#Uno las consultas
-consultaSQL = """
-                 SELECT 
-                 ee.Provincia,
-                 ee.Departamento,
-                 ee.Cant_Escuelas_Inicial AS Jardines,
-                 pob.Poblacion_Inicial AS "Población Jardin",
-                 ee.Cant_Escuelas_Primaria AS Primarias,
-                 pob.Poblacion_Primaria AS "Población Primaria",
-                 ee.Cant_Escuelas_Secundaria AS Secundarios,
-                 pob.Poblacion_Secundaria AS "Población Secundaria"
-                 FROM ee_por_niv AS ee
-                 INNER JOIN pob_por_niv AS pob
-                 ON ee.ID_DEPTO = pob.ID_DEPTO
-
+                JOIN Escuelas AS e ON d.ID_DEPTO = e.ID_DEPTO
+                JOIN Poblacion AS po ON d.ID_DEPTO = po.ID_DEPTO
+                ORDER BY p.Provincia ASC, e.Cant_Escuelas_Primaria DESC
                       """
 Nivel_Ed_por_Prov = dd.sql(consultaSQL).df()
 
+# %%
+
+Nivel_Ed_por_Prov.to_csv('Nivel_Ed_por_Prov.csv', index=False)
+
+
 #%%
 # SELECCION PRIMERAS Y ULTIMAS 3 FILAS
-# muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
+# muestra las primeras 3 filas, puntos suspensivos y las últimas 3 filas
 tabla_1 = pd.concat([Nivel_Ed_por_Prov.head(3), pd.DataFrame([['...'] * Nivel_Ed_por_Prov.shape[1]], columns=Nivel_Ed_por_Prov.columns), Nivel_Ed_por_Prov.tail(3)])
 
 
@@ -789,6 +783,9 @@ EE_prov = Cantidad_de_EE.groupby("Provincia")["Cantidad_de_EE"].sum().reset_inde
 CC_depto = Centros_C.merge(Departamentos[["ID_DEPTO", "ID_PROV"]], on="ID_DEPTO", how="left")
 CC_prov = CC_depto.groupby("ID_PROV")["ID_CC"].count().reset_index().rename(columns={"ID_CC": "Cantidad_CC"})  # cuento los CC por provincia
 CC_prov = CC_prov.merge(Provincias, on="ID_PROV", how="left")                                                   # Agrego el nombre de la provincia
+
+pop_prov = pop_prov.replace('Tierra del Fuego, Antártida e Islas del Atlántico Sur', 'Tierra del Fuego' )
+CC_prov = CC_prov.replace('Tierra del Fuego, Antártida e Islas del Atlántico Sur', 'Tierra del Fuego' )
 
 # 4. Calcular indicadores por mil habitantes a nivel provincial
 df_EE = EE_prov.merge(pop_prov, on="Provincia", how="left")                                                     # Uno la información de EE y población (usando el nombre de provincia)
