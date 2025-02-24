@@ -1,14 +1,9 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb 21 16:04:30 2025
-
-@author: micag
-"""
-
-# -*- coding: utf-8 -*-
 """
 Created on Friday Feb 14 18:30:27 2025
 Alumnos: Gonzalo Caporaletti, Victoria Carbonel, Micaela Gonzalez Dardik
+
+LABORATORIO de DATOS: intensivo de verano
+
 Tema: Trabajo Práctico 01. Manejo y visualización de Datos
 Fecha de entrega: 23 de febrero de 2025 
 """
@@ -23,23 +18,24 @@ import re
 import unicodedata
 import matplotlib.pyplot as plt
 import seaborn as sns
+
 # Las bases de datos necesarias para el Trabajo las guardamos en la carpeta tp01
 
 #%% FUNCIONES
-def reemplazar_si_empieza(texto):                           #cambia los nombres de comuna a ciudad autonoma de buenos aires
-    if isinstance(texto, str):                              # Verifica que es un string
+
+def reemplazar_si_empieza(texto):  # Cambia los nombres de 'Comuna X' a 'ciudad autonoma de buenos aires'
+    if isinstance(texto, str):  # Verifica que es un string
         if texto.startswith("comuna"):
-            return "ciudad autonoma de buenos aires"        # Nuevo valor
-    return texto                                            # Deja el valor original si no coincide
+            return "ciudad autonoma de buenos aires"  # Nuevo valor
+    return texto  # Deja el valor original si no coincide
 
 
-
-def quitar_tildes(texto):                                   # Saca las tildes y convierte a minúsculas
-    if isinstance(texto, str):                              # Verifica que sea texto
+def quitar_tildes(texto):  # Saca las tildes y convierte a minúsculas
+    if isinstance(texto, str):  # Verifica que sea texto
         return ''.join(
             c for c in unicodedata.normalize('NFD', texto)
             if unicodedata.category(c) != 'Mn'
-        ).lower()                                           # Convierte a minúsculas 
+        ).lower()  # Convierte a minúsculas 
     return texto
 
 # %% Cargamos las Bases de Datos de cada fuente
@@ -47,24 +43,25 @@ def quitar_tildes(texto):                                   # Saca las tildes y 
 CC = pd.read_csv("centros_culturales.csv")
 
 ee = pd.read_excel("2022_padron_oficial_establecimientos_educativos.xlsx", skiprows=6)
+# Saltea las primeras 6 líneas correspondientes a títulos y encabezados
 
 pp = pd.read_excel("padron_poblacion.xlsx", skiprows=12)
-
+# Saltea las primeras 12 líneas correspondientes a títulos y encabezados
 
 #%% LIMPIEZA DE DATOS
 #%% BASE de DATOS: CC
 
-CC = CC.replace({0: 's/d', '-': 's/d'})             # Reemplaza 0 y '-' en todas las columnas
-CC = CC.fillna('s/d')                               # Reemplaza los valores nulos (NaN)
-CC = CC.reset_index()                               # convierto el índice en una columna para identificar los CC
-CC.rename(columns={'index': 'ID_CC'}, inplace=True) # Lo renombro
+CC = CC.replace({0: 's/d', '-': 's/d'})  # Reemplaza 0 y '-' en todas las columnas
+CC = CC.fillna('s/d')  # Reemplaza los valores nulos (NaN)
+CC = CC.reset_index()  # Convierto el índice en una columna para identificar los CC
+CC.rename(columns={'index': 'ID_CC'}, inplace=True)  # Lo renombro
 CC.rename(columns={'Mail ': 'Mail'}, inplace=True)  # Elimino el espacio en el nombre de la columna Mail
 
 '---------------------------------corrijo celdas desplazadas--------------------------------------------'
 
-conn = dd.connect(database='CC.duckdb', read_only=False) # Creo un archivo de la base de datos par usarlo como base en duckdb
-conn.execute("DROP TABLE IF EXISTS CC")                  # Eliminar la tabla CC si existe (para evitar conflictos si se ejecuta más de una vez)
-conn.execute("CREATE TABLE CC AS SELECT * FROM CC")      # Creo la tabla base CC a partir del DataFrame en el archivo
+conn = dd.connect(database='CC.duckdb', read_only=False)  # Creo un archivo de la base de datos para usarlo como base en duckdb
+conn.execute("DROP TABLE IF EXISTS CC")  # Eliminar la tabla CC si existe (para evitar conflictos si se ejecuta más de una vez)
+conn.execute("CREATE TABLE CC AS SELECT * FROM CC")  # Creo la tabla base CC a partir del DataFrame en el archivo
 
 consultaSQL = """
                     UPDATE CC
@@ -103,7 +100,7 @@ conn.execute(consultaSQL)
 
 CC = conn.execute("SELECT * FROM CC").df()
 
-#Elimino las columnas que no usaremos y Paso Departamento a Minúscula
+# Elimino las columnas que no usaremos y Paso Departamento a Minúscula
 consultaSQL = '''SELECT ID_CC, 
                  ID_PROV, ID_DEPTO, 
                  Provincia, 
@@ -115,17 +112,16 @@ consultaSQL = '''SELECT ID_CC,
        
 CC = dd.sql(consultaSQL).df()
 
-CC["Departamento"] = CC["Departamento"].apply(quitar_tildes)    #Elimino las tildes
-CC['Departamento'] = CC['Departamento'].replace({               #Cambio los nombres de los departamentos que no coincidan con el df de Departamentos
+CC["Departamento"] = CC["Departamento"].apply(quitar_tildes)  # Elimino las tildes
+
+CC['Departamento'] = CC['Departamento'].replace({  # Cambio los nombres de los departamentos que no coincidan con el df de Departamentos
     'grl. jose de san martin': 'general jose de san martin',
-    "san nicolas de los arroyos" : "san nicolas",
+    "san nicolas de los arroyos": "san nicolas",
     "o' higgins": "o'higgins",
     'primero de mayo': "1º de mayo",
 })
 
-
-
-#%%BASE de DATOS: ee
+#%% BASE de DATOS: ee
 
 ee["Departamento"] = ee["Departamento"].apply(quitar_tildes)
 
@@ -133,24 +129,24 @@ ee = ee.rename(columns={"Jurisdicción": "Provincia"})
 
 '''Arreglo a la base de datos ee'''
 
-#1 cambio los departamentos que empiezan con comuna a ciudad autonoma de buenos aires
+# Cambio los departamentos que empiezan con comuna a ciudad autonoma de buenos aires
 ee["Departamento"] = ee["Departamento"].apply(reemplazar_si_empieza) 
 
-#2 reemplazo lugares vacios por NaN
+# Reemplazo lugares vacíos por NaN
 ee = ee.replace(' ', np.nan)  # Convierte espacios en blanco en NaN
 ee = ee.replace('', np.nan)  # Convierte strings vacíos en NaN
 
-#3 reemplazo NaNs por 0
+# Reemplazo NaNs por 0
 ee = ee.fillna(0)  # Rellena NaN con s/d
 
-#modifico los 0 por s/d en las columnas que corresponde
+# Modifico los 0 por s/d en las columnas que corresponde
 columnas_a_modificar = ['Provincia', 'Cueanexo', 'Nombre', 'Sector', 'Ámbito', 'Domicilio', 'C. P.', 'Código de área', 'Teléfono', 'Código de localidad', 'Localidad', 'Departamento', 'Mail']
 ee[columnas_a_modificar] = ee[columnas_a_modificar].replace({0: 's/d', '-': 's/d'})
 
-#4 Filtro las filas donde la columna 'Común' tenga un valor de 1
-ee = ee[ee["Común"].astype(int) == 1] # 1 era un string, forzosamente lo transformo en un int
+# Filtro las filas donde la columna 'Común' tenga un valor de 1
+ee = ee[ee["Común"].astype(int) == 1]  # 1 era un string, forzosamente lo transformo en un int
 
-#5 Cambio específico de algunos departamentos que no coinciden con la entidad departamento
+# Cambio específico de algunos departamentos que no coinciden con la entidad departamento
 ee['Departamento'] = ee['Departamento'].replace({
     '1§ de mayo': '1º de mayo',
     'coronel de marina l rosales': 'coronel de marina leonardo rosales',
@@ -158,25 +154,25 @@ ee['Departamento'] = ee['Departamento'].replace({
     'o higgins': "o'higgins",
     'doctor manuel belgrano': "dr. manuel belgrano",
     'mayor luis j fontana': "mayor luis j. fontana",
-    'general juan f quiroga' : 'general juan facundo quiroga',
-    'general ocampo' : 'general ortiz de ocampo',
-    'juan f ibarra' : 'juan felipe ibarra',
+    'general juan f quiroga': 'general juan facundo quiroga',
+    'general ocampo': 'general ortiz de ocampo',
+    'juan f ibarra': 'juan felipe ibarra',
 })
 
-
-#6 Cambio específico de algunas provincias para que coincidan con la entidad provincia
+# Cambio específico de algunas provincias para que coincidan con la entidad provincia
 ee['Provincia'] = ee['Provincia'].replace({
     'Ciudad de Buenos Aires': 'Ciudad Autónoma de Buenos Aires',
     'Tierra del Fuego': 'Tierra del Fuego, Antártida e Islas del Atlántico Sur',
 })
 
-#7 Selecciono solo las columnas que necesito para trabajar y analizar
+# Selecciono solo las columnas que necesito para trabajar y analizar
 columnas_necesarias = [
     "Provincia", "Cueanexo", "Nombre", "Departamento",
     "Nivel inicial - Jardín maternal", "Nivel inicial - Jardín de infantes",
     "Primario", "Secundario", "Secundario - INET", "SNU", "SNU - INET"
 ]
 ee = ee[columnas_necesarias]
+
 
 # %% BASE de DATOS: Población
 
@@ -208,7 +204,7 @@ pp["Comuna"] = None
 area_actual = None
 comuna_actual = None
 
-# 5) Iterar las filas para detectar "AREA #..." y asociarlas
+# 5) Iterar sobre las filas para detectar "AREA #..." y asociarlas
 for i, row in pp.iterrows():
     valor_edad = row["Edad"]
     if isinstance(valor_edad, str) and "AREA #" in valor_edad:
@@ -232,10 +228,10 @@ if not indice_resumen.empty:
     primer_resumen = indice_resumen.min()
     pp = pp.loc[:primer_resumen - 1]
 
-# 8) Eliminar filas que tengan NaN en la col '%'
+# 8) Eliminar filas que tengan NaN en la columna '%'
 pp = pp.dropna(subset=["%"])
 
-# 9) Eliminar filas que todavía tengan 'Edad' en la col Edad (eran encabezados)
+# 9) Eliminar filas que todavía tengan 'Edad' en la columna Edad (eran encabezados)
 pp = pp[pp['Edad'] != 'Edad']
 
 # 10) Eliminar la columna 'descartar' si existe
@@ -332,7 +328,7 @@ Departamentos['codigo_provincia'] = (
 Departamentos = Departamentos.sort_values("ID_DEPTO")
 
 #------------------------------------------------------------------------------
-# PASO 4: Para que CABA aparezca, fíjate que su fila ahora existe
+# PASO 4: Para que CABA aparezca, verifica que su fila ahora existe
 #         con Área = None, codigo_provincia=2, codigo_depto=000, etc.
 #         Asignar la misma clave en 'pp'
 #------------------------------------------------------------------------------
@@ -368,13 +364,13 @@ CC['ID_DEPTO'] = CC['ID_DEPTO'].astype(int)
 Departamentos['ID_DEPTO'] = Departamentos['ID_DEPTO'].astype(int) 
 
 CC['ID_PROV'] = CC['ID_PROV'].astype(int)
-Departamentos['ID_PROV'] = Departamentos['ID_PROV'].astype(int)                #convierto a int las columnas
+Departamentos['ID_PROV'] = Departamentos['ID_PROV'].astype(int)                # Convertir a int las columnas
 
-CC.drop(columns=['ID_DEPTO'], inplace=True)                                    #Elimino la antigua columna de ID_DEPTO
-CC = CC.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       #Asigno el ID_DEPTO correcto a cada fila
+CC.drop(columns=['ID_DEPTO'], inplace=True)                                    # Eliminar la antigua columna de ID_DEPTO
+CC = CC.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Asignar el ID_DEPTO correcto a cada fila
 # %%
 ee = ee.merge(Provincias, on= 'Provincia', how='left')
-ee = ee.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Agrego código de departamento
+ee = ee.merge(Departamentos, on=['Departamento', 'ID_PROV'], how='left')       # Agregar código de departamento
 
 #%%
 # Armamos las bases  a partir del DER que planteamos
